@@ -1,0 +1,7 @@
+{
+  "name": "LP-0016 Anonymous Forum Demo",
+  "id": "lp0016-anon-forum-demo",
+  "version": "0.1.0",
+  "description": "Minimal Basecamp UI placeholder for anonymous threshold-moderated forums",
+  "main": "Main.qml"
+}

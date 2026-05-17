@@ -1,0 +1,13 @@
+# logos-scaffold placeholder configuration.
+# Run `logos-scaffold init` in the final repo and let it migrate/pin actual LEZ/SPEL/Basecamp commits.
+
+schema = "0.2.0"
+
+[project]
+name = "lp0016-anon-forum"
+
+[repos.lez]
+# Pin the final tested commit/tag here after `logos-scaffold setup`.
+
+[modules.lp0016_forum]
+path = "app/basecamp-forum"
