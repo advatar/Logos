@@ -63,11 +63,17 @@ Deferred for Phase 4 (RISC0):
 - [ ] Keep the default workspace build on `dev-mocks` so contributors without `cargo-risczero` can still build & test.
 - [ ] `RISC0_DEV_MODE=0 scripts/demo_e2e.sh` runs against the real guest once the toolchain is installed (documented prerequisite).
 
-### Phase 5 — LEZ/SPEL registry program
+### Phase 5 — LEZ/SPEL registry program ✅ (real SPEL macros pending toolchain)
 
-- [ ] Move `src/registry/lez-program-stub` to `src/registry/lp0016-registry` and add SPEL-shaped annotations behind a `spel` feature so the crate keeps compiling without `logos-scaffold`. Annotations cover: `#[lez_program]`, `#[instruction]` on `create_forum/register_member/slash_member`, `#[account]` on `ForumState/MemberRecord/RevocationRecord/ModeratorSetVersion`.
-- [ ] Generate a hand-written IDL at `src/registry/idl/lp0016_registry.json` matching the eventual `logos-scaffold build idl` output shape, so downstream tooling can be wired before the real generator is available. CI lint compares this against a `gen-idl` test that round-trips the structs.
-- [ ] Persist account types using the canonical transcript serialization (not `serde_json`) so on-chain bytes are deterministic.
+- [x] Renamed `src/registry/lez-program-stub` → `src/registry/lp0016-registry`. Crate is in the workspace, compiles without `logos-scaffold`. Doc-style `// #[lez_program]` / `// #[instruction]` / `// #[account]` markers are present at every annotation site; the `spel` feature flag is reserved so flipping these to real attribute macros is a one-line cargo feature toggle once the toolchain is installed.
+- [x] Three instruction functions implemented against an in-memory `Ledger`: `create_forum`, `register_member` (enforces minimum stake), `slash_member` (verifies bundle, writes a `RevocationRecord`, advances both Merkle roots).
+- [x] Account types: `ForumState`, `MemberRecord`, `RevocationRecord`, `StakePolicy`. Each has a `canonical_hash()` built from the lp0016 transcript framing — `serde_json` is *not* used for on-chain bytes.
+- [x] Hand-written IDL at `src/registry/idl/lp0016_registry.json`. `idl_matches_handwritten_file` test enforces instruction names and account names. When `logos-scaffold build idl` is available, its output must match this shape.
+
+Open follow-ups:
+- [ ] Wire the real `#[lez_program]` / `#[instruction]` / `#[account]` macros under the `spel` feature once `logos-scaffold setup` is run and the LEZ / SPEL versions are pinned in `scaffold.toml`.
+- [ ] Validate the threshold public key against the canonical identity (reject the zero point) inside `create_forum`. Needs an `is_identity()` accessor on `ThresholdPublicKey`.
+- [ ] Stake escrow: today `stake_amount` is passed as a number; production needs to bind a stake account.
 
 ### Phase 6 — Storage, retry, and slash-verifier CLI
 

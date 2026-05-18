@@ -1,0 +1,21 @@
+[package]
+name = "lp0016-registry"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "LP-0016 LEZ registry program: forum state, member registration, slash verification."
+
+[features]
+default = []
+# When the real `logos-scaffold` / SPEL toolchain is available, enabling this
+# feature turns the doc-style `// #[lez_program]` markers in source into real
+# attribute macros. Until then the crate compiles as a plain Rust library.
+spel = []
+
+[dependencies]
+protocol-core = { path = "../../crates/protocol-core" }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+ed25519-dalek.workspace = true

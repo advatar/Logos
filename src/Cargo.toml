@@ -4,7 +4,7 @@ members = [
   "crates/moderation-sdk",
   "crates/registry-sim",
   "crates/slash-verifier",
-  "registry/lez-program-stub",
+  "registry/lp0016-registry",
 ]
 resolver = "2"
 
