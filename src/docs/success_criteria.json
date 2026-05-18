@@ -1,0 +1,271 @@
+{
+  "source": "HACK.md Success Criteria",
+  "parent_issue": "https://github.com/advatar/Logos/issues/6",
+  "criteria": [
+    {
+      "id": "SC-FUNC-01",
+      "category": "Functionality",
+      "title": "Anonymous registration, posting, and unlinkability",
+      "issue": "https://github.com/advatar/Logos/issues/7",
+      "current_status": "local_proof",
+      "criterion": "A member can register in a forum instance with a stake and subsequently publish posts with valid anonymous proofs of membership. Posts from the same member are unlinkable to any observer, including moderators, while below the slash threshold.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_registration_posts_and_unlinkability"},
+        {"kind": "unit", "path": "scripts/test_protocol.py", "name": "test_post_verifies_before_revocation"}
+      ]
+    },
+    {
+      "id": "SC-FUNC-02",
+      "category": "Functionality",
+      "title": "Slash retroactive linkability only for slashed member",
+      "issue": "https://github.com/advatar/Logos/issues/8",
+      "current_status": "local_proof",
+      "criterion": "Upon slash, the reconstructed secret enables retroactive linkability of the slashed member's prior posts. No other member's anonymity is affected. This property is documented in docs/protocol.md.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_slash_links_only_the_slashed_members_posts"},
+        {"kind": "doc", "path": "docs/protocol.md", "name": "Unlinkability argument"}
+      ]
+    },
+    {
+      "id": "SC-FUNC-03",
+      "category": "Functionality",
+      "title": "N-of-M off-chain moderation certificates",
+      "issue": "https://github.com/advatar/Logos/issues/9",
+      "current_status": "local_proof",
+      "criterion": "N-of-M moderators can jointly produce a valid moderation certificate off-chain using the Logos stack. Fewer than N moderators cannot produce a certificate.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_threshold_certificate_rejects_fewer_than_n"},
+        {"kind": "unit", "path": "scripts/test_protocol.py", "name": "test_partial_certificate_rejected"}
+      ]
+    },
+    {
+      "id": "SC-FUNC-04",
+      "category": "Functionality",
+      "title": "K certificates trigger slash and registry revocation",
+      "issue": "https://github.com/advatar/Logos/issues/10",
+      "current_status": "local_proof",
+      "criterion": "When K moderation certificates are accumulated for the same member, any moderator or party can submit a single slash transaction to the membership registry; the registry verifies evidence and revokes membership.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_k_certificates_revoke_and_block_future_posts"},
+        {"kind": "integration", "path": "scripts/demo_e2e.sh", "name": "slash-verifier CLI smoke"}
+      ]
+    },
+    {
+      "id": "SC-FUNC-05",
+      "category": "Functionality",
+      "title": "Revocation list rejects future posts",
+      "issue": "https://github.com/advatar/Logos/issues/11",
+      "current_status": "local_proof",
+      "criterion": "A slashed commitment is added to the revocation list. Subsequent posts with a proof tied to that commitment are rejected.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_k_certificates_revoke_and_block_future_posts"},
+        {"kind": "rust", "path": "crates/risc0-statement/src/lib.rs", "name": "verify_rejects_revoked_member_root"}
+      ]
+    },
+    {
+      "id": "SC-FUNC-06",
+      "category": "Functionality",
+      "title": "Independent forum K and N-of-M parameters",
+      "issue": "https://github.com/advatar/Logos/issues/12",
+      "current_status": "local_proof",
+      "criterion": "The protocol is parameterisable: forum instances can independently set K and N-of-M.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_forums_are_independently_parameterized"},
+        {"kind": "integration", "path": "scripts/demo_e2e.py", "name": "Forum A and Forum B flow"}
+      ]
+    },
+    {
+      "id": "SC-FUNC-07",
+      "category": "Functionality",
+      "title": "Forum-agnostic moderation SDK APIs",
+      "issue": "https://github.com/advatar/Logos/issues/13",
+      "current_status": "local_proof",
+      "criterion": "A standalone forum-agnostic moderation library exposes documented APIs for registration, encrypted proof generation and verification, certificate construction, and slash submission; it uses abstract content identifiers and Logos off-chain abstractions.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_sdk_api_docs_cover_forum_agnostic_surface"},
+        {"kind": "rust", "path": "crates/moderation-sdk/src/lib.rs", "name": "app_flow_can_attach_risc0_receipt_bytes"}
+      ]
+    },
+    {
+      "id": "SC-FUNC-08",
+      "category": "Functionality",
+      "title": "Basecamp app full moderation lifecycle without CLI",
+      "issue": "https://github.com/advatar/Logos/issues/14",
+      "current_status": "runtime_ready_check",
+      "criterion": "A working Logos Basecamp app built on the library allows non-technical users to create a forum, register, post, moderate, view history, and revoke without CLI interaction.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_basecamp_package.py", "name": "test_qml_inspector_click_through_spec_exists"},
+        {"kind": "diagnostic", "path": "scripts/check_basecamp_inspector.py", "name": "basecamp_qml_inspector"}
+      ]
+    },
+    {
+      "id": "SC-FUNC-09",
+      "category": "Functionality",
+      "title": "LEZ testnet demo with two independent forums",
+      "issue": "https://github.com/advatar/Logos/issues/15",
+      "current_status": "external_runtime_required",
+      "criterion": "End-to-end demonstration on LEZ testnet includes at least two independent forum instances using different K and N-of-M parameters.",
+      "proofs": [
+        {"kind": "diagnostic", "path": "scripts/check_lez_runtime.py", "name": "lez_runtime"},
+        {"kind": "integration", "path": "scripts/demo_e2e.py", "name": "two independent forum instances"}
+      ]
+    },
+    {
+      "id": "SC-USE-01",
+      "category": "Usability",
+      "title": "Importable documented moderation SDK",
+      "issue": "https://github.com/advatar/Logos/issues/16",
+      "current_status": "local_proof",
+      "criterion": "Provide the moderation library as an importable module/SDK with documented API for Logos applications.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_sdk_api_docs_cover_forum_agnostic_surface"},
+        {"kind": "rust", "path": "crates/moderation-sdk/Cargo.toml", "name": "moderation-sdk package"}
+      ]
+    },
+    {
+      "id": "SC-USE-02",
+      "category": "Usability",
+      "title": "SPEL IDL for membership registry",
+      "issue": "https://github.com/advatar/Logos/issues/17",
+      "current_status": "runtime_ready_check",
+      "criterion": "Provide an IDL for the membership registry LEZ program using the SPEL framework.",
+      "proofs": [
+        {"kind": "rust", "path": "registry/lp0016-registry/src/lib.rs", "name": "idl_matches_handwritten_file"},
+        {"kind": "diagnostic", "path": "scripts/check_lez_runtime.py", "name": "framework_kind"}
+      ]
+    },
+    {
+      "id": "SC-REL-01",
+      "category": "Reliability",
+      "title": "Retryable proof generation failures preserve nullifier",
+      "issue": "https://github.com/advatar/Logos/issues/18",
+      "current_status": "local_proof",
+      "criterion": "Proof generation failures surface a clear error to the member and allow retry without consuming the member's nullifier.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_proof_generation_failure_is_retryable_without_state_change"},
+        {"kind": "unit", "path": "scripts/test_protocol.py", "name": "test_slash_revokes_and_blocks_future_post"}
+      ]
+    },
+    {
+      "id": "SC-REL-02",
+      "category": "Reliability",
+      "title": "Partial certificates cannot reach on-chain slash",
+      "issue": "https://github.com/advatar/Logos/issues/19",
+      "current_status": "local_proof",
+      "criterion": "A partial moderation certificate with fewer than N moderators cannot be submitted on-chain; the library enforces threshold client-side.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_threshold_certificate_rejects_fewer_than_n"},
+        {"kind": "unit", "path": "scripts/test_protocol.py", "name": "test_partial_certificate_rejected"}
+      ]
+    },
+    {
+      "id": "SC-REL-03",
+      "category": "Reliability",
+      "title": "Logos stack failures queue and retry actions",
+      "issue": "https://github.com/advatar/Logos/issues/20",
+      "current_status": "local_proof",
+      "criterion": "Transient Logos stack failures are handled gracefully: pending posts and moderation actions are queued and retried rather than silently dropped.",
+      "proofs": [
+        {"kind": "rust", "path": "crates/moderation-sdk/src/lib.rs", "name": "failed_put_is_queued_for_retry"},
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_success_matrix_has_all_criteria_issues_and_proofs"}
+      ]
+    },
+    {
+      "id": "SC-PERF-01",
+      "category": "Performance",
+      "title": "ZK proof generation under ten seconds",
+      "issue": "https://github.com/advatar/Logos/issues/21",
+      "current_status": "external_runtime_required",
+      "criterion": "ZK membership proof generation takes less than 10 seconds on a standard laptop.",
+      "proofs": [
+        {"kind": "diagnostic", "path": "scripts/check_lez_runtime.py", "name": "guest_source"},
+        {"kind": "doc", "path": "docs/performance.md", "name": "RISC0 benchmark target"}
+      ]
+    },
+    {
+      "id": "SC-PERF-02",
+      "category": "Performance",
+      "title": "Document CU costs for register and slash",
+      "issue": "https://github.com/advatar/Logos/issues/22",
+      "current_status": "runtime_ready_check",
+      "criterion": "Document the compute unit cost of each on-chain operation, including registration and slash submission, on LEZ devnet/testnet.",
+      "proofs": [
+        {"kind": "diagnostic", "path": "scripts/measure_cu.sh", "name": "lez_compute_units"},
+        {"kind": "doc", "path": "docs/performance.md", "name": "CU table"}
+      ]
+    },
+    {
+      "id": "SC-SUP-01",
+      "category": "Supportability",
+      "title": "Registry deployed and tested on LEZ devnet/testnet",
+      "issue": "https://github.com/advatar/Logos/issues/23",
+      "current_status": "external_runtime_required",
+      "criterion": "The membership registry program is deployed and tested on LEZ devnet/testnet.",
+      "proofs": [
+        {"kind": "diagnostic", "path": "scripts/check_lez_runtime.py", "name": "lez_runtime"},
+        {"kind": "artifact", "path": "registry/program_ids", "name": "program IDs after deployment"}
+      ]
+    },
+    {
+      "id": "SC-SUP-02",
+      "category": "Supportability",
+      "title": "LEZ sequencer integration tests in CI",
+      "issue": "https://github.com/advatar/Logos/issues/24",
+      "current_status": "runtime_ready_check",
+      "criterion": "End-to-end integration tests run against a LEZ sequencer in standalone mode and are included in CI.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_ci_runs_success_criteria_and_runtime_checks"},
+        {"kind": "diagnostic", "path": "scripts/check_lez_runtime.py", "name": "localnet"}
+      ]
+    },
+    {
+      "id": "SC-SUP-03",
+      "category": "Supportability",
+      "title": "Default branch CI green",
+      "issue": "https://github.com/advatar/Logos/issues/25",
+      "current_status": "runtime_ready_check",
+      "criterion": "CI must be green on the default branch.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_ci_runs_success_criteria_and_runtime_checks"},
+        {"kind": "artifact", "path": ".github/workflows/ci.yml", "name": "default branch CI workflow"}
+      ]
+    },
+    {
+      "id": "SC-SUP-04",
+      "category": "Supportability",
+      "title": "README E2E usage and program addresses",
+      "issue": "https://github.com/advatar/Logos/issues/26",
+      "current_status": "runtime_ready_check",
+      "criterion": "README documents deployment steps, program addresses, and steps for forum creation, registration, posting, moderation, and slash through Basecamp.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_readme_names_e2e_usage_and_remaining_address_artifacts"},
+        {"kind": "doc", "path": "README.md", "name": "Immediate next steps"},
+        {"kind": "artifact", "path": "registry/program_ids", "name": "program IDs after deployment"}
+      ]
+    },
+    {
+      "id": "SC-SUP-05",
+      "category": "Supportability",
+      "title": "Real local sequencer demo with RISC0_DEV_MODE=0",
+      "issue": "https://github.com/advatar/Logos/issues/27",
+      "current_status": "runtime_ready_check",
+      "criterion": "A reproducible end-to-end demo script works against a real local sequencer with RISC0_DEV_MODE=0.",
+      "proofs": [
+        {"kind": "integration", "path": "scripts/demo_e2e.sh", "name": "RISC0_DEV_MODE=0 host check"},
+        {"kind": "diagnostic", "path": "scripts/check_lez_runtime.py", "name": "localnet"}
+      ]
+    },
+    {
+      "id": "SC-SUP-06",
+      "category": "Supportability",
+      "title": "Narrated recorded video demo",
+      "issue": "https://github.com/advatar/Logos/issues/28",
+      "current_status": "submission_artifact_required",
+      "criterion": "Submission includes narrated video showing architecture, decisions, full lifecycle, terminal output, proof generation, and RISC0_DEV_MODE=0.",
+      "proofs": [
+        {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_success_matrix_has_all_criteria_issues_and_proofs"},
+        {"kind": "artifact", "path": "README.md", "name": "demo video link after recording"}
+      ]
+    }
+  ]
+}

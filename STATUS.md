@@ -7,6 +7,16 @@
 - Current close-all-gaps pass: https://github.com/advatar/Logos/issues/3
 - Runtime build continuation: https://github.com/advatar/Logos/issues/4
 - No-Noir final blocker pass: https://github.com/advatar/Logos/issues/5
+- Success criteria proof tracker: https://github.com/advatar/Logos/issues/6
+- Per-criterion success issues: https://github.com/advatar/Logos/issues/7 through https://github.com/advatar/Logos/issues/28
+
+## Active Success Criteria Tracking Pass
+
+- [x] Create one GitHub issue for each LP-0016 success criterion from `HACK.md`.
+- [x] Add a tracked success-criteria matrix that maps every criterion to its issue and proof tests.
+- [x] Add or tighten unit tests so local criteria have executable proof and external criteria have explicit readiness diagnostics.
+- [x] Run verification for the local proof suite.
+- [x] Commit, push, and update GitHub issues (#6-#28).
 
 ## Active No-Noir Final Blocker Pass
 
@@ -53,7 +63,8 @@
 ## Current Verification
 
 - `cd src && python3 scripts/demo_e2e.py`: passed.
-- `cd src && python3 -m unittest scripts/test_protocol.py scripts/test_basecamp_package.py scripts/test_runtime_checks.py`: passed, 13 tests.
+- `cd src && python3 -m unittest scripts/test_protocol.py scripts/test_basecamp_package.py scripts/test_runtime_checks.py scripts/test_success_criteria.py`: passed, 27 tests.
+- `cd src && python3 -m json.tool docs/success_criteria.json`: passed.
 - `cd src && cargo build --workspace`: passed.
 - `cd src && cargo test --workspace`: passed, 49 Rust tests across workspace crates plus doc-tests.
 - `cd src && cargo test --manifest-path zk/membership-host/Cargo.toml`: passed.

@@ -18,6 +18,8 @@ jobs:
       - run: python3 scripts/demo_e2e.py
       - run: python3 -m unittest scripts/test_protocol.py
       - run: python3 -m unittest scripts/test_basecamp_package.py
+      - run: python3 -m unittest scripts/test_runtime_checks.py
+      - run: python3 -m unittest scripts/test_success_criteria.py
 
   rust:
     runs-on: ubuntu-latest

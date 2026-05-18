@@ -57,6 +57,27 @@ app/basecamp-forum         Basecamp QML flow and core-module bridge
 4. Wire `moderation-sdk` storage and messaging traits to Logos Storage/Delivery.
 5. Run the packaged Basecamp LGX through the QML inspector harness.
 
+## Success criteria tracking
+
+`docs/success_criteria.json` maps every LP-0016 success criterion to a
+GitHub issue and a local proof test or runtime diagnostic. The current
+end-to-end usage path is:
+
+```bash
+python3 scripts/demo_e2e.py
+scripts/demo_e2e.sh
+RISC0_DEV_MODE=0 scripts/demo_e2e.sh
+scripts/package_basecamp.sh /tmp/lp0016-basecamp
+scripts/check_lez_runtime.py
+scripts/check_basecamp_inspector.py
+```
+
+The Basecamp flow covers forum creation, register, posting, moderating,
+history/certificate review, and slash. LEZ program IDs are not published yet;
+the required future artifacts are `registry/program_ids/devnet.txt` and
+`registry/program_ids/testnet.txt`, which become available after the
+deployable `lez-framework` guest is built and deployed.
+
 ## License
 
 MIT or Apache-2.0 at your option.

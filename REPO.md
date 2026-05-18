@@ -6,6 +6,7 @@ Current placeholder audit after the latest build pass:
 - CU measurement remains blocked on the deployable LEZ guest, `lez-framework` migration, and the current local circuits cache mismatch (`v0.4.1` installed, `v0.4.2` expected by the probed `lez-framework` stack).
 - Full app-flow RISC0 proof generation is still open, but receipt byte wiring is no longer only a placeholder: `ZkReceipt::Risc0`, the SDK, the RISC0 host, and the Basecamp core module now accept serialized receipt bytes.
 - Basecamp click-through is no longer only a manual note: `src/app/basecamp-forum/ui-tests.mjs` defines the QML inspector flow, and `src/scripts/check_basecamp_inspector.py` records missing `logos-qt-mcp` / app-binary prerequisites.
+- LP-0016 success criteria are now tracked one-for-one in GitHub issues #7-#28 and in `src/docs/success_criteria.json`; `src/scripts/test_success_criteria.py` enforces issue/proof coverage and local behavioral proofs.
 
 Delivered a starter repository here:
 
