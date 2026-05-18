@@ -1,5 +1,7 @@
 import json
+import os
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -31,6 +33,42 @@ class RuntimeCheckTests(unittest.TestCase):
         self.assertEqual(report["target"], "basecamp_qml_inspector")
         self.assertIsInstance(report["blockers"], list)
         self.assertTrue(report["lp0016_ui_test"].endswith("ui-tests.mjs"))
+
+    def test_basecamp_inspector_accepts_manual_artifacts_without_nix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            basecamp_dir = root / "basecamp"
+            qt_mcp = root / "qt-mcp"
+            app = root / "LogosBasecamp"
+            design_system = root / "design-system"
+            basecamp_dir.mkdir()
+            (qt_mcp / "test-framework").mkdir(parents=True)
+            (qt_mcp / "test-framework" / "framework.mjs").write_text("")
+            (design_system / "Logos" / "Theme").mkdir(parents=True)
+            (design_system / "Logos" / "Controls").mkdir(parents=True)
+            (design_system / "Logos" / "Theme" / "qmldir").write_text("")
+            (design_system / "Logos" / "Controls" / "qmldir").write_text("")
+            app.write_text("#!/usr/bin/env sh\nexit 0\n")
+            app.chmod(0o755)
+
+            env = os.environ.copy()
+            env["LOGOS_BASECAMP_DIR"] = str(basecamp_dir)
+            env["LOGOS_QT_MCP"] = str(qt_mcp)
+            env["LOGOS_BASECAMP_APP"] = str(app)
+            env["LOGOS_DESIGN_SYSTEM_ROOT"] = str(design_system)
+            output = subprocess.check_output(
+                ["python3", str(ROOT / "scripts" / "check_basecamp_inspector.py")],
+                cwd=ROOT,
+                env=env,
+                text=True,
+            )
+            report = json.loads(output)
+            blocker_ids = {blocker["id"] for blocker in report["blockers"]}
+
+        self.assertNotIn("logos_qt_mcp", blocker_ids)
+        self.assertNotIn("basecamp_app", blocker_ids)
+        self.assertNotIn("nix", blocker_ids)
+        self.assertNotIn("logos_design_system", blocker_ids)
 
 
 if __name__ == "__main__":

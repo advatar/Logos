@@ -14,13 +14,21 @@ async function openLp0016(app) {
     "LP-0016 Anonymous Forum Demo",
     "LP-0016",
   ];
+
+  const expectForum = async () => {
+    try {
+      await app.click("1. Forum");
+    } catch (_err) {
+      // The LP-0016 panel may not be active yet.
+    }
+    await app.expectTexts(["LP-0016", "Forum"]);
+  };
+
   for (const label of candidates) {
     try {
       await app.click(label);
       await app.waitFor(
-        async () => {
-          await app.expectTexts(["LP-0016", "Forum"]);
-        },
+        expectForum,
         { timeout: 5000, interval: 250, description: `LP-0016 app after clicking ${label}` },
       );
       return;
@@ -28,7 +36,7 @@ async function openLp0016(app) {
       // Try the next label; Basecamp has changed sidebar labels across releases.
     }
   }
-  await app.expectTexts(["LP-0016", "Forum"]);
+  await expectForum();
 }
 
 test("lp0016_basecamp_forum: click through the full moderation flow", async (app) => {
@@ -61,7 +69,7 @@ test("lp0016_basecamp_forum: click through the full moderation flow", async (app
 test("lp0016_basecamp_forum: direct sidebar navigation reaches slash screen", async (app) => {
   await openLp0016(app);
   await app.click("8. Slash");
-  await app.expectTexts(["slash", "commitment reconstructed", "Submit slash"]);
+  await app.expectTexts(["slash", "commitment reconstructed", "stake claim recorded"]);
 });
 
 run();

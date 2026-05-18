@@ -6,6 +6,8 @@
   "description": "Basecamp flow harness for anonymous threshold-moderated forums",
   "author": "LP-0016 contributors",
   "type": "ui_qml",
+  "icon": "icon.svg",
+  "view": "Main.qml",
   "category": "privacy",
   "dependencies": [],
   "capabilities": [],

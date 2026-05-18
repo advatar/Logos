@@ -17,9 +17,13 @@ class BasecampPackageTests(unittest.TestCase):
 
         self.assertEqual(manifest["manifestVersion"], "0.1.0")
         self.assertEqual(manifest["type"], "ui_qml")
+        self.assertEqual(manifest["icon"], "icon.svg")
+        self.assertEqual(manifest["view"], "Main.qml")
         self.assertEqual(metadata["type"], "ui_qml")
         self.assertEqual(metadata["pluginType"], "qml")
         self.assertEqual(metadata["main"], "Main.qml")
+        self.assertEqual(metadata["view"], "Main.qml")
+        self.assertEqual(metadata["icon"], "icon.svg")
         self.assertIn("darwin-arm64", manifest["main"])
 
     def test_qml_root_can_embed_in_basecamp_qquickwidget(self):
@@ -46,9 +50,11 @@ class BasecampPackageTests(unittest.TestCase):
             with tarfile.open(package, "r:gz") as archive:
                 names = set(archive.getnames())
 
-            self.assertIn("./manifest.json", names)
-            self.assertIn("./variants/darwin-arm64/Main.qml", names)
-            self.assertIn("./variants/darwin-arm64/metadata.json", names)
+            self.assertFalse(any(name.startswith("./") for name in names))
+            self.assertIn("manifest.json", names)
+            self.assertIn("variants/darwin-arm64/Main.qml", names)
+            self.assertIn("variants/darwin-arm64/metadata.json", names)
+            self.assertIn("variants/darwin-arm64/icon.svg", names)
 
     def test_qml_inspector_click_through_spec_exists(self):
         test_file = APP_DIR / "ui-tests.mjs"

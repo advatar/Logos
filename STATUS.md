@@ -10,6 +10,15 @@
 - Success criteria proof tracker: https://github.com/advatar/Logos/issues/6
 - Per-criterion success issues: https://github.com/advatar/Logos/issues/7 through https://github.com/advatar/Logos/issues/28
 - Phase 2-9 closure verification: https://github.com/advatar/Logos/issues/29
+- Dependency install / runtime unblock pass: https://github.com/advatar/Logos/issues/30
+
+## Active Dependency Install / Runtime Unblock Pass
+
+- [x] Re-run dependency diagnostics and identify installable blockers.
+- [x] Install or fetch matching Logos circuits expected by the LEZ probe.
+- [x] Install or fetch Basecamp inspector dependencies where possible (`logos-qt-mcp`, Basecamp source/runtime, inspector-enabled app, design-system QML, package tooling).
+- [x] Re-run runtime diagnostics and local build/test after dependency changes.
+- [x] Commit, push, and update issue #30 with what was installed and what still needs system-level/manual action.
 
 ## Active Phase 2-9 Closure Verification Pass
 
@@ -54,35 +63,38 @@
 - [x] Added Lean `Shamir.lean` and `Slash.lean` theorem surfaces, building locally without `sorry`.
 - [x] Replaced the single-screen Basecamp placeholder with a deterministic 9-screen QML flow.
 - [x] Added `app/basecamp-forum/core-module`, a Rust C ABI bridge point over `moderation-sdk`.
-- [x] Extended CI with shell demo smoke coverage, structured CU script output, Basecamp static checks, and an optional RISC0 feature check on stable Rust.
+- [x] Extended CI with shell demo smoke coverage, structured CU script output, Basecamp static checks, and a required RISC0 feature check on stable Rust.
 - [x] Installed and verified RISC0 tooling locally via `cargo-risczero 3.0.5`, `rzup 0.5.1`, `r0vm 3.0.5`, `cpp 2024.1.5`, and RISC0 Rust `1.94.1`.
 - [x] Installed `logos-scaffold` and converted `src/scaffold.toml` to the current scaffold schema with the pinned LEZ commit.
-- [x] Installed `logos-blockchain-circuits v0.4.1` into `~/.logos-blockchain-circuits`; `logos-scaffold setup` now builds the pinned LEZ `sequencer_service` and `wallet` binaries.
+- [x] Installed `logos-blockchain-circuits v0.4.2` into `~/.logos-blockchain-circuits`; `logos-scaffold setup` now satisfies the pinned LEZ probe.
 - [x] Packaged the Basecamp UI as a real `ui_qml` LGX (`scripts/package_basecamp.sh`) and changed `Main.qml` to an embeddable `Item` root for Basecamp's `QQuickWidget` loader.
 - [x] Boot-tested the official macOS `logos-basecamp` v0.1.1 runtime from the signed/notarized DMG.
+- [x] Built an inspector-enabled Basecamp app locally without Nix, rebuilt matching `package_manager` and `main_ui` plugins, installed the design-system QML imports, and passed the LP-0016 QML inspector click-through.
 
 ## External Blockers
 
-- [ ] LEZ registry deployment / CU measurement: LEZ binaries from the previous pinned setup exist, but the deployable path is still blocked by three concrete checks: `scaffold.toml` is still `framework.kind = "default"`, this repo has no `methods/guest/src/bin/lp0016_registry.rs`, and the installed `~/.logos-blockchain-circuits` is `v0.4.1` while the current `lez-framework` probe expects `v0.4.2`. `scripts/check_lez_runtime.py` and `scripts/measure_cu.sh` now report those blockers as JSON.
+- [ ] LEZ registry deployment / CU measurement: the dependency blocker is cleared (`logos-blockchain-circuits v0.4.2` installed and `logos-scaffold setup` passes), but the deployable path is still blocked by two code/config checks: `scaffold.toml` is still `framework.kind = "default"` and this repo has no `methods/guest/src/bin/lp0016_registry.rs`. `scripts/check_lez_runtime.py` and `scripts/measure_cu.sh` report those blockers as JSON.
 - [ ] Real SPEL macro flip: `logos-scaffold build idl` is available, but v0.1.1 only emits IDL for `framework.kind = "lez-framework"` and expects the generated client crate layout. This repo stays on `framework.kind = "default"` until the registry can migrate without breaking `cargo build --workspace`.
-- [ ] Basecamp automated click-through: official runtime v0.1.1 boots and the app packages as LGX. The LP-0016 click-through spec now exists, but running it is blocked locally by missing `logos-qt-mcp`, missing `nix`, and no `LOGOS_BASECAMP_APP` executable path. `scripts/check_basecamp_inspector.py` reports the exact missing pieces.
 - [ ] Full RISC0 proof generation from the app flow: feature-gated host checks pass and generated receipt bytes can now be converted/attached to `ZkReceipt::Risc0`; the remaining blocker is producing the final guest image and serialized receipt from the application flow rather than the current local host feature test.
 
 ## Current Verification
 
 - `cd src && python3 scripts/demo_e2e.py`: passed.
-- `cd src && python3 -m unittest scripts/test_protocol.py scripts/test_basecamp_package.py scripts/test_runtime_checks.py scripts/test_success_criteria.py scripts/test_phase_closure.py`: passed, 36 tests.
+- `cd src && python3 -m unittest scripts/test_protocol.py scripts/test_basecamp_package.py scripts/test_runtime_checks.py scripts/test_success_criteria.py scripts/test_phase_closure.py`: passed, 37 tests.
 - `cd src && python3 -m unittest scripts/test_phase_closure.py`: passed, 9 tests.
 - `cd src && python3 -m json.tool docs/success_criteria.json`: passed.
 - `cd src && cargo build --workspace`: passed.
 - `cd src && cargo test --workspace`: passed, 49 Rust tests across workspace crates plus doc-tests.
 - `cd src && cargo test --manifest-path zk/membership-host/Cargo.toml`: passed.
+- `cd src && rustup run stable cargo check --manifest-path zk/membership-host/Cargo.toml --features risc0`: passed.
 - `cd src && scripts/demo_e2e.sh`: passed, including registry JSON emission and `slash-verifier` CLI verification.
 - `cd src && RISC0_DEV_MODE=0 scripts/demo_e2e.sh`: passed, including feature-gated RISC0 host tests under `cargo +stable`.
 - `cd src/lean && lake build`: passed.
 - `cd src && ./scripts/package_basecamp.sh /tmp/lp0016-basecamp`: passed and emitted `lp0016-anon-forum-demo.lgx`.
-- `cd src && ./scripts/measure_cu.sh`: passed script execution and emitted structured blocked JSON for `framework.kind = "default"`, missing `methods/guest/src/bin/lp0016_registry.rs`, and circuits `v0.4.1` versus expected `v0.4.2`.
-- `cd src && python3 scripts/check_lez_runtime.py && python3 scripts/check_basecamp_inspector.py`: passed script execution; both intentionally reported blocked JSON for missing external runtime pieces.
+- `cd src && DYLD_LIBRARY_PATH=/tmp/logos-package-install/lib /tmp/logos-package-install/bin/lgx verify /tmp/lp0016-basecamp/lp0016-anon-forum-demo.lgx`: passed, package structure valid and unsigned.
+- `cd src && LOGOS_QT_MCP=/tmp/logos-qt-mcp-inspect LOGOS_BASECAMP_APP=/tmp/logos-basecamp-build/LogosBasecamp QML2_IMPORT_PATH=/tmp/logos-design-system/src/qml QML_IMPORT_PATH=/tmp/logos-design-system/src/qml DYLD_LIBRARY_PATH=/tmp/modules/package_manager:/tmp/plugins/main_ui:/opt/homebrew/opt/gettext/lib:/opt/homebrew/opt/icu4c/lib:/tmp/logos-package-manager-install/lib:/tmp/logos-package-install/lib:/tmp/logos-liblogos-install/lib node app/basecamp-forum/ui-tests.mjs --ci /tmp/logos-basecamp-build/LogosBasecamp`: passed, 2 tests.
+- `cd src && ./scripts/measure_cu.sh`: passed script execution and emitted structured blocked JSON for `framework.kind = "default"` and missing `methods/guest/src/bin/lp0016_registry.rs`.
+- `cd src && python3 scripts/check_lez_runtime.py && python3 scripts/check_basecamp_inspector.py`: passed script execution; LEZ intentionally reports code/config blockers, Basecamp reports `ready`.
 - `cd src && cargo risczero --version`: passed, `cargo-risczero 3.0.5`.
 - `cd src && ~/.cargo/bin/rzup --version && ~/.cargo/bin/r0vm --version`: passed, `rzup 0.5.1` and `risc0-r0vm 3.0.5`.
 - `cd src && ~/.cargo/bin/logos-scaffold build idl`: ran; skipped because scaffold framework kind is `default`.
@@ -95,3 +107,4 @@
 - The dependency-free Python simulator intentionally remains a structural reference using dev crypto; production crypto lives in Rust.
 - The Lean Shamir module currently exposes a `ShamirSystem` proof contract rather than a Mathlib-backed concrete finite-field polynomial development. It is `sorry`-free and keeps downstream theorem names stable.
 - Generated local artifacts remain ignored: `target/`, `.lake/`, `.scaffold/`, and Python `__pycache__/`.
+- Nix was not installed in this pass because the macOS installer requires sudo/root and `sudo -n true` fails without a password; the Basecamp path is unblocked with manually built artifacts instead.
