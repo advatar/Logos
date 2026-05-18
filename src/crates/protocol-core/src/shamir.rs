@@ -1,16 +1,16 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{digest, hash_to_field, ProtocolError, Result, F, Hash32};
+use crate::{digest, hash_to_field, ProtocolError, Result, Hash32, Scalar};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Share {
-    pub x: F,
-    pub y: F,
+    pub x: Scalar,
+    pub y: Scalar,
 }
 
-pub fn eval_poly(coeffs: &[F], x: F) -> F {
-    let mut acc = F::ZERO;
-    let mut power = F::ONE;
+pub fn eval_poly(coeffs: &[Scalar], x: Scalar) -> Scalar {
+    let mut acc = Scalar::ZERO;
+    let mut power = Scalar::ONE;
     for c in coeffs {
         acc += *c * power;
         power *= x;
@@ -18,7 +18,7 @@ pub fn eval_poly(coeffs: &[F], x: F) -> F {
     acc
 }
 
-pub fn interpolate_coeffs(shares: &[Share]) -> Result<Vec<F>> {
+pub fn interpolate_coeffs(shares: &[Share]) -> Result<Vec<Scalar>> {
     if shares.is_empty() {
         return Ok(vec![]);
     }
@@ -31,16 +31,16 @@ pub fn interpolate_coeffs(shares: &[Share]) -> Result<Vec<F>> {
     }
 
     let n = shares.len();
-    let mut result = vec![F::ZERO; n];
+    let mut result = vec![Scalar::ZERO; n];
 
     for (i, si) in shares.iter().enumerate() {
-        let mut basis = vec![F::ONE];
-        let mut denom = F::ONE;
+        let mut basis = vec![Scalar::ONE];
+        let mut denom = Scalar::ONE;
         for (j, sj) in shares.iter().enumerate() {
             if i == j {
                 continue;
             }
-            let mut next = vec![F::ZERO; basis.len() + 1];
+            let mut next = vec![Scalar::ZERO; basis.len() + 1];
             for (degree, coeff) in basis.iter().copied().enumerate() {
                 next[degree] -= coeff * sj.x;
                 next[degree + 1] += coeff;
@@ -57,21 +57,21 @@ pub fn interpolate_coeffs(shares: &[Share]) -> Result<Vec<F>> {
     Ok(result)
 }
 
-pub fn coeffs_to_bytes(coeffs: &[F]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(coeffs.len() * 8);
+pub fn coeffs_to_bytes(coeffs: &[Scalar]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(coeffs.len() * 32);
     for c in coeffs {
-        out.extend_from_slice(&c.to_be_bytes());
+        out.extend_from_slice(&c.to_bytes());
     }
     out
 }
 
-pub fn commitment_for(forum_id: &Hash32, k: u8, coeffs: &[F]) -> Hash32 {
+pub fn commitment_for(forum_id: &Hash32, k: u8, coeffs: &[Scalar]) -> Hash32 {
     let k_bytes = [k];
     let coeff_bytes = coeffs_to_bytes(coeffs);
     digest("member", &[forum_id, &k_bytes, &coeff_bytes])
 }
 
-pub fn share_for(forum_id: &Hash32, coeffs: &[F], content_id: &Hash32, nonce: &[u8]) -> Share {
+pub fn share_for(forum_id: &Hash32, coeffs: &[Scalar], content_id: &Hash32, nonce: &[u8]) -> Share {
     let x = hash_to_field("share-x", &[forum_id, content_id, nonce]);
     let y = eval_poly(coeffs, x);
     Share { x, y }
@@ -80,11 +80,11 @@ pub fn share_for(forum_id: &Hash32, coeffs: &[F], content_id: &Hash32, nonce: &[
 pub fn share_commitment(forum_id: &Hash32, content_id: &Hash32, nonce: &[u8], share: Share) -> Hash32 {
     digest(
         "share",
-        &[forum_id, content_id, nonce, &share.x.to_be_bytes(), &share.y.to_be_bytes()],
+        &[forum_id, content_id, nonce, &share.x.to_bytes(), &share.y.to_bytes()],
     )
 }
 
-pub fn retro_tag(forum_id: &Hash32, coeffs: &[F], content_id: &Hash32, nonce: &[u8]) -> Hash32 {
+pub fn retro_tag(forum_id: &Hash32, coeffs: &[Scalar], content_id: &Hash32, nonce: &[u8]) -> Hash32 {
     let coeff_bytes = coeffs_to_bytes(coeffs);
     digest("retro", &[forum_id, &coeff_bytes, content_id, nonce])
 }
@@ -95,12 +95,21 @@ mod tests {
 
     #[test]
     fn interpolation_recovers_coefficients() {
-        let coeffs = vec![F::from(5), F::from(7), F::from(11)];
+        let coeffs = vec![Scalar::from_u64(5), Scalar::from_u64(7), Scalar::from_u64(11)];
         let shares = [
-            Share { x: F::from(1), y: eval_poly(&coeffs, F::from(1)) },
-            Share { x: F::from(2), y: eval_poly(&coeffs, F::from(2)) },
-            Share { x: F::from(3), y: eval_poly(&coeffs, F::from(3)) },
+            Share { x: Scalar::from_u64(1), y: eval_poly(&coeffs, Scalar::from_u64(1)) },
+            Share { x: Scalar::from_u64(2), y: eval_poly(&coeffs, Scalar::from_u64(2)) },
+            Share { x: Scalar::from_u64(3), y: eval_poly(&coeffs, Scalar::from_u64(3)) },
         ];
         assert_eq!(interpolate_coeffs(&shares).unwrap(), coeffs);
+    }
+
+    #[test]
+    fn duplicate_x_is_rejected() {
+        let shares = [
+            Share { x: Scalar::from_u64(1), y: Scalar::from_u64(10) },
+            Share { x: Scalar::from_u64(1), y: Scalar::from_u64(20) },
+        ];
+        assert_eq!(interpolate_coeffs(&shares).unwrap_err(), ProtocolError::DuplicateShareX);
     }
 }

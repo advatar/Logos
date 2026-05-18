@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     commitment_for, interpolate_coeffs, verify_certificate, AnonymousPostEnvelope, ForumConfig,
-    Hash32, ModerationCertificate, ProtocolError, Result, Share,
+    Hash32, ModerationCertificate, ProtocolError, Result, Scalar, Share,
 };
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -66,7 +66,7 @@ pub fn verify_post(registry: &RegistryState, forum: &ForumConfig, post: &Anonymo
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SlashResult {
     pub commitment: Hash32,
-    pub reconstructed_coeffs: Vec<crate::F>,
+    pub reconstructed_coeffs: Vec<Scalar>,
 }
 
 pub fn slash(registry: &mut RegistryState, forum: &ForumConfig, certificates: &[ModerationCertificate]) -> Result<SlashResult> {
@@ -89,21 +89,35 @@ pub fn slash(registry: &mut RegistryState, forum: &ForumConfig, certificates: &[
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{create_vote, digest, statement_for, AnonymousPostEnvelope, MemberSecret, ModerationCertificate, ModeratorId};
+    use crate::{
+        create_vote, digest, statement_for, AnonymousPostEnvelope, MemberSecret, ModerationCertificate,
+        ModeratorId, ModeratorSecret,
+    };
 
-    fn forum() -> ForumConfig {
-        ForumConfig {
+    fn test_forum() -> (ForumConfig, Vec<ModeratorSecret>) {
+        let mods: Vec<ModeratorSecret> = ["alice", "bob", "carol"]
+            .iter()
+            .map(|name| ModeratorSecret::from_seed(ModeratorId((*name).into()), &derive_seed(name)))
+            .collect();
+        let forum = ForumConfig {
             forum_id: digest("forum", &[b"unit"]),
             k: 2,
             n: 2,
-            moderators: vec![ModeratorId("alice".into()), ModeratorId("bob".into()), ModeratorId("carol".into())],
+            moderators: mods.iter().map(ModeratorSecret::identity).collect(),
             mod_set_version: 1,
-        }
+            threshold_public_key_hash: digest("threshold-pk", &[b"unit"]),
+        };
+        (forum, mods)
+    }
+
+    fn derive_seed(name: &str) -> [u8; 32] {
+        let h = digest("mod-seed", &[name.as_bytes()]);
+        h
     }
 
     #[test]
     fn slash_revokes_member() {
-        let forum = forum();
+        let (forum, mods) = test_forum();
         let member = MemberSecret::from_seed(&forum.forum_id, forum.k, b"seed");
         let mut registry = RegistryState::default();
         registry.register(member.commitment(&forum.forum_id)).unwrap();
@@ -116,15 +130,56 @@ mod tests {
             oracle.remember(post.ciphertext_hash, share);
             verify_post(&registry, &forum, &post).unwrap();
             let reason = digest("reason", &[b"rule"]);
-            let st = statement_for(&forum, post.post_id, post.content_id, post.proof_public_inputs_hash, post.ciphertext_hash, reason);
+            let st = statement_for(
+                &forum,
+                post.post_id,
+                post.content_id,
+                post.proof_public_inputs_hash,
+                post.ciphertext_hash,
+                reason,
+            );
             let votes = vec![
-                create_vote(&forum, ModeratorId("alice".into()), &st).unwrap(),
-                create_vote(&forum, ModeratorId("bob".into()), &st).unwrap(),
+                create_vote(&forum, &mods[0], &st).unwrap(),
+                create_vote(&forum, &mods[1], &st).unwrap(),
             ];
-            certs.push(ModerationCertificate { statement: st, votes, revealed_share: oracle.decrypt(&post.ciphertext_hash).unwrap() });
+            certs.push(ModerationCertificate {
+                statement: st,
+                votes,
+                revealed_share: oracle.decrypt(&post.ciphertext_hash).unwrap(),
+            });
         }
 
         let result = slash(&mut registry, &forum, &certs).unwrap();
         assert!(registry.revoked.contains(&result.commitment));
+    }
+
+    #[test]
+    fn cross_forum_certificate_is_rejected() {
+        let (forum_a, mods_a) = test_forum();
+        let mut forum_b = forum_a.clone();
+        forum_b.forum_id = digest("forum", &[b"other"]);
+
+        let member = MemberSecret::from_seed(&forum_a.forum_id, forum_a.k, b"seed");
+        let content_id = digest("content", &[b"x"]);
+        let (post, _share) = AnonymousPostEnvelope::new_dev(&forum_a, &member, content_id, vec![0]);
+        let reason = digest("reason", &[b"rule"]);
+        let st = statement_for(
+            &forum_a,
+            post.post_id,
+            post.content_id,
+            post.proof_public_inputs_hash,
+            post.ciphertext_hash,
+            reason,
+        );
+        let votes = vec![
+            create_vote(&forum_a, &mods_a[0], &st).unwrap(),
+            create_vote(&forum_a, &mods_a[1], &st).unwrap(),
+        ];
+        let cert = ModerationCertificate {
+            statement: st,
+            votes,
+            revealed_share: Share { x: Scalar::ONE, y: Scalar::ONE },
+        };
+        assert_eq!(verify_certificate(&forum_b, &cert).unwrap_err(), ProtocolError::InvalidCertificate);
     }
 }

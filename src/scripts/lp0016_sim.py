@@ -149,6 +149,10 @@ class ForumConfig:
     n: int
     moderators: Dict[str, ModeratorKey]
     mod_set_version: int = 1
+    # Hash of the threshold-decryption public key. Bound into certificate
+    # statements and the post public-inputs hash so a certificate produced for
+    # one threshold-key configuration cannot be replayed against another.
+    threshold_public_key_hash: bytes = b"\x00" * 32
 
     def __post_init__(self) -> None:
         if self.k < 1:
@@ -273,6 +277,7 @@ def build_post(
         ciphertext_hash,
         share_commitment,
         retro_tag,
+        forum.threshold_public_key_hash,
     )
     return AnonymousPostEnvelope(
         forum_id=forum.forum_id,
@@ -304,6 +309,7 @@ class CertificateStatement:
     mod_set_version: int
     k: int
     n: int
+    threshold_public_key_hash: Hash32
 
     def hash(self) -> Hash32:
         return digest(
@@ -317,6 +323,7 @@ class CertificateStatement:
             _u64(self.mod_set_version),
             _u64(self.k),
             _u64(self.n),
+            self.threshold_public_key_hash,
         )
 
 
@@ -351,6 +358,7 @@ def statement_for(forum: ForumConfig, post: AnonymousPostEnvelope, reason_hash: 
         mod_set_version=forum.mod_set_version,
         k=forum.k,
         n=forum.n,
+        threshold_public_key_hash=forum.threshold_public_key_hash,
     )
 
 
@@ -391,6 +399,8 @@ def verify_certificate(forum: ForumConfig, cert: ModerationCertificate) -> bool:
     if st.forum_id != forum.forum_id or st.k != forum.k or st.n != forum.n:
         return False
     if st.mod_set_version != forum.mod_set_version:
+        return False
+    if st.threshold_public_key_hash != forum.threshold_public_key_hash:
         return False
     signer_ids = [v.moderator_id for v in cert.votes]
     if len(set(signer_ids)) < forum.n:

@@ -81,12 +81,13 @@ impl<S: OffchainStore> ForumSdk<S> {
 
     pub fn persist_post(&mut self, post: &AnonymousPostEnvelope) -> Result<String> {
         let bytes = serde_json::to_vec(post)?;
-        self.store.put("post", bytes)
+        let namespace = format!("post/{}", hex::encode(post.forum_id));
+        self.store.put(&namespace, bytes)
     }
 
     pub fn create_moderation_vote(
         &self,
-        moderator_id: ModeratorId,
+        moderator: &ModeratorSecret,
         post: &AnonymousPostEnvelope,
         reason_hash: Hash32,
     ) -> protocol_core::Result<ModerationVote> {
@@ -98,7 +99,7 @@ impl<S: OffchainStore> ForumSdk<S> {
             post.ciphertext_hash,
             reason_hash,
         );
-        create_vote(&self.forum, moderator_id, &st)
+        create_vote(&self.forum, moderator, &st)
     }
 
     pub fn aggregate_certificate(

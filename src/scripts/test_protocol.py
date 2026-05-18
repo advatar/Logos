@@ -32,7 +32,13 @@ def mod(mid: str) -> ModeratorKey:
 class ProtocolTests(unittest.TestCase):
     def setUp(self):
         moderators = {m.moderator_id: m for m in [mod("a"), mod("b"), mod("c")]}
-        self.forum = ForumConfig(forum_id=digest("forum", b"test"), k=2, n=2, moderators=moderators)
+        self.forum = ForumConfig(
+            forum_id=digest("forum", b"test"),
+            k=2,
+            n=2,
+            moderators=moderators,
+            threshold_public_key_hash=digest("threshold-pk", b"test"),
+        )
         self.registry = Registry(self.forum)
         self.oracle = ThresholdOracle()
         self.member = MemberSecret.from_seed(self.forum.forum_id, self.forum.k, b"member")
@@ -78,9 +84,30 @@ class ProtocolTests(unittest.TestCase):
 
     def test_cross_forum_replay_rejected(self):
         post = build_post(self.registry, self.oracle, self.member, b"bad", b"nonce")
-        other_forum = ForumConfig(forum_id=digest("forum", b"other"), k=2, n=2, moderators=self.forum.moderators)
+        other_forum = ForumConfig(
+            forum_id=digest("forum", b"other"),
+            k=2,
+            n=2,
+            moderators=self.forum.moderators,
+            threshold_public_key_hash=digest("threshold-pk", b"other"),
+        )
         other_registry = Registry(other_forum)
         self.assertFalse(verify_post(other_registry, post))
+
+    def test_cross_threshold_key_replay_rejected(self):
+        post = build_post(self.registry, self.oracle, self.member, b"bad", b"nonce")
+        reason = digest("reason", b"x")
+        votes = [create_vote(self.forum, "a", post, reason), create_vote(self.forum, "b", post, reason)]
+        cert = aggregate_certificate(self.forum, self.oracle, post, reason, votes)
+        rekeyed_forum = ForumConfig(
+            forum_id=self.forum.forum_id,
+            k=self.forum.k,
+            n=self.forum.n,
+            moderators=self.forum.moderators,
+            mod_set_version=self.forum.mod_set_version,
+            threshold_public_key_hash=digest("threshold-pk", b"rotated"),
+        )
+        self.assertFalse(verify_certificate(rekeyed_forum, cert))
 
 
 if __name__ == "__main__":

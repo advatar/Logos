@@ -4,6 +4,7 @@ members = [
   "crates/moderation-sdk",
   "crates/registry-sim",
   "crates/slash-verifier",
+  "registry/lez-program-stub",
 ]
 resolver = "2"
 
@@ -15,9 +16,16 @@ authors = ["LP-0016 contributors"]
 
 [workspace.dependencies]
 anyhow = "1.0"
+# Transitive deps pinned for Rust 1.82.0 (no edition 2024 yet).
+base64ct = "=1.6.0"
 clap = { version = "=4.5.50", features = ["derive"] }
+curve25519-dalek = { version = "4", default-features = false, features = ["alloc", "digest", "zeroize"] }
+ed25519-dalek = { version = "2", default-features = false, features = ["std", "fast", "zeroize"] }
 hex = "0.4"
+rand_core = { version = "0.6", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
+subtle = { version = "2", default-features = false }
 thiserror = "1.0"
+zeroize = { version = "1", default-features = false }

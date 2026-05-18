@@ -27,7 +27,13 @@ def mod(mid: str) -> ModeratorKey:
 def run_forum_a() -> None:
     print("\n=== Forum A: K=2 strikes, N=2-of-3 moderators ===")
     moderators = {m.moderator_id: m for m in [mod("alice"), mod("bob"), mod("carol")]}
-    forum = ForumConfig(forum_id=digest("forum", b"forum-a"), k=2, n=2, moderators=moderators)
+    forum = ForumConfig(
+        forum_id=digest("forum", b"forum-a"),
+        k=2,
+        n=2,
+        moderators=moderators,
+        threshold_public_key_hash=digest("threshold-pk", b"forum-a"),
+    )
     registry = Registry(forum)
     oracle = ThresholdOracle()
 
@@ -78,7 +84,13 @@ def run_forum_a() -> None:
 def run_forum_b() -> None:
     print("\n=== Forum B: independent parameters K=3, N=1-of-2 moderators ===")
     moderators = {m.moderator_id: m for m in [mod("dave"), mod("erin")]}
-    forum = ForumConfig(forum_id=digest("forum", b"forum-b"), k=3, n=1, moderators=moderators)
+    forum = ForumConfig(
+        forum_id=digest("forum", b"forum-b"),
+        k=3,
+        n=1,
+        moderators=moderators,
+        threshold_public_key_hash=digest("threshold-pk", b"forum-b"),
+    )
     registry = Registry(forum)
     oracle = ThresholdOracle()
     member = MemberSecret.from_seed(forum.forum_id, forum.k, b"member-2-seed")

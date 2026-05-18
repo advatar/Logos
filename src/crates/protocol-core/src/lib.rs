@@ -4,6 +4,9 @@
 //! dependency. It models the slash/certificate/Shamir state machine that the
 //! production integrations must preserve.
 
+// Transitive pin to keep Rust 1.82.0 compat — base64ct 1.7+ needs edition 2024.
+use base64ct as _;
+
 pub mod cert;
 pub mod field;
 pub mod hash;

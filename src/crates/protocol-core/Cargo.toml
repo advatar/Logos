@@ -6,7 +6,18 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+# Pin transitive to keep Rust 1.82.0 compat (base64ct 1.7+ needs edition 2024).
+base64ct.workspace = true
+curve25519-dalek.workspace = true
+ed25519-dalek.workspace = true
 hex.workspace = true
+rand_core.workspace = true
 serde.workspace = true
 sha2.workspace = true
+subtle.workspace = true
 thiserror.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+rand_core = { workspace = true, features = ["getrandom"] }
+serde_json.workspace = true

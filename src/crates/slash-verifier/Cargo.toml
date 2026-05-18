@@ -8,5 +8,7 @@ license.workspace = true
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
+hex.workspace = true
 protocol-core = { path = "../protocol-core" }
+serde = { workspace = true }
 serde_json.workspace = true

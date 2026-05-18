@@ -62,9 +62,11 @@ C2 = encode(x, y) XOR KDF(K, len(encode(x, y)))
 
 - ZK proof system: RISC Zero zkVM receipt for the membership/post statement.
 
-### Development choices in this starter repo
+### Implementation status
 
-The Rust/Python local model uses a small prime field `2^61 - 1`, SHA-256 transcripts, mock receipts, and mock threshold decryption. This lets tests exercise the protocol state machine quickly. Replace with the production choices above before security review.
+- Rust `protocol-core`: **production** Ristretto255 scalar field and **production** Ed25519 moderator signatures. Canonical transcript framing matches the rules in §3. `ForumConfig` carries `threshold_public_key_hash` and certificate statements bind it.
+- Rust `protocol-core`: **dev** placeholders still in place for the threshold-decryption oracle (`DevThresholdOracle`) and the membership/post receipt (`MockZkReceipt`). The threshold ElGamal + DLEQ design is what these will be replaced with — see `STATUS.md → Close-the-gaps plan`.
+- Python `lp0016_sim.py`: stays on the dev field (`2^61 - 1`) and the dev SHA-256-derived moderator signature. SPEC.md keeps it dependency-free; the production crypto lives in Rust. Python mirrors every transcript binding the Rust core enforces (forum_id, mod_set_version, threshold_public_key_hash, K, N), so changes to the protocol-level transcript must update both.
 
 ## 3. Serialization and domain separation
 
