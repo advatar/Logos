@@ -82,9 +82,11 @@ Rust `protocol-core` is on the production targets for three primitives:
 
 Registry state binds **Merkle roots** for membership and revocation. `RegistryState::membership_root()` and `revocation_root()` derive from the current sets via `protocol-core::merkle` (sorted, de-duplicating, leaf/node domain-separated). `AnonymousPostEnvelope::build` takes the registry and binds both roots into the public-inputs hash. Non-membership proofs against the revocation root are deferred until the RISC0 guest fixes the in-circuit encoding.
 
+The RISC0 statement is real and CPU-tested: `crates/risc0-statement` holds `PublicInputs`, `PrivateInputs`, and `verify(public, private)`. Same code links into the guest at `src/zk/membership-guest` (gated by the `risc0` cargo feature; default build skips it). The host at `src/zk/membership-host` calls `default_prover().prove` and verifies receipts against the image id. Both guest and host live outside the workspace so the default `cargo build --workspace` doesn't drag in `cargo-risczero`.
+
 Still dev/mock and pending replacement (`STATUS.md` tracks):
 
-- `MockZkReceipt` — stand-in for the RISC0 membership/post receipt.
+- `MockZkReceipt` inside `protocol-core` — the post envelope still embeds a development-only commitment hint. The structural plumbing for a real `ZkReceipt::Risc0 { receipt_bytes, image_id }` variant is ready; swapping it in is Phase 4 follow-up.
 - `DealerShares::trusted` — single-trusted-party DKG. Fine for tests/demos; production needs Pedersen DKG so no party ever sees `s`.
 
 The Python simulator stays on the dev field (`2^61 - 1`), the dev `ModeratorKey` SHA-256-derived signature, and the `ThresholdOracle` HashMap stand-in. It's the executable structural reference. Python mirrors all transcript bindings the Rust core enforces (forum_id, mod_set_version, threshold_public_key_hash, K/N), so a protocol-level change must update both. Commitment *bytes* will not match between Python and Rust for the same seed because the fields differ — that's expected.

@@ -3,6 +3,7 @@ members = [
   "crates/protocol-core",
   "crates/moderation-sdk",
   "crates/registry-sim",
+  "crates/risc0-statement",
   "crates/slash-verifier",
   "registry/lp0016-registry",
 ]

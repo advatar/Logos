@@ -54,14 +54,17 @@ Deferred for Phase 4 (RISC0):
 - [ ] Non-membership proofs against the revocation root. Encoding depends on the circuit shape (sparse Merkle tree vs. indexed Merkle tree); pick once the guest is being written so the in-circuit cost is the deciding factor.
 - [ ] Incremental root updates. Today both roots are recomputed from scratch on every read. Fine at starter scale; revisit if `registered` grows past a few thousand entries.
 
-### Phase 4 — RISC0 guest + host
+### Phase 4 — RISC0 guest + host ✅ (real proving needs cargo-risczero locally)
 
-- [ ] New crate `crates/risc0-statement` (no_std) holding the pure check function used in both the guest and a `cfg(test)` host harness — same code, no duplication.
-- [ ] `src/zk/membership-guest`: real RISC0 guest using `risc0-zkvm`, reading public/private inputs, calling `risc0-statement::check`, committing the public-inputs hash.
-- [ ] `src/zk/membership-host`: real RISC0 host that builds an `ExecutorEnv`, produces a receipt, and verifies it.
-- [ ] In `protocol-core`, replace `MockZkReceipt` with a `ZkReceipt` enum: `Mock` (cfg-feature `dev-mocks`) and `Risc0 { receipt_bytes, image_id }` (cfg-feature `risc0-verify`). The verifier checks `Risc0` receipts via the host crate when `risc0-verify` is on.
-- [ ] Keep the default workspace build on `dev-mocks` so contributors without `cargo-risczero` can still build & test.
-- [ ] `RISC0_DEV_MODE=0 scripts/demo_e2e.sh` runs against the real guest once the toolchain is installed (documented prerequisite).
+- [x] New crate `crates/risc0-statement` holds the pure `verify(public, private)` check used by both the guest and CPU-side callers — no code duplication. 4 unit tests exercise the happy path, tampered membership root, wrong coefficients, and swapped threshold key. `PublicInputs::commitment()` uses the same SHA-256 framing as `AnonymousPostEnvelope::build`, so the receipt's committed hash matches what the cert binds.
+- [x] `src/zk/membership-guest`: real RISC0 guest entry point gated by the `risc0` feature, reads `PublicInputs` then `PrivateInputs` from `env`, runs `risc0_statement::verify`, commits the public-inputs commitment. Without the feature it compiles as a no-op `main` so `cargo check` keeps working.
+- [x] `src/zk/membership-host`: real RISC0 host (gated by the same `risc0` feature) builds an `ExecutorEnv`, calls `default_prover().prove`, exposes a verifier that checks the receipt against the expected `image_id` and journal commitment.
+- [x] Both guest and host live outside the top-level workspace (empty `[workspace]` table in their `Cargo.toml`) so default `cargo build --workspace` doesn't require `cargo-risczero`.
+
+Open follow-ups:
+- [ ] In `protocol-core`, swap `MockZkReceipt` for a `ZkReceipt` enum (`Mock` vs `Risc0 { receipt_bytes, image_id }`) and verify `Risc0` receipts via the host crate when a `risc0-verify` feature is on. (Today the post envelope still embeds the dev-only commitment hint; the structural plumbing is ready.)
+- [ ] Non-membership against `revocation_root` inside the guest. The statement crate currently accepts a `non_membership_witness` slot the verifier ignores; pick sparse-Merkle vs indexed-Merkle once we can benchmark in-circuit cost.
+- [ ] `RISC0_DEV_MODE=0 scripts/demo_e2e.sh` end-to-end. Needs `rzup install` + `cargo install cargo-risczero` first.
 
 ### Phase 5 — LEZ/SPEL registry program ✅ (real SPEL macros pending toolchain)
 

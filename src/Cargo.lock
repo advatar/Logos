@@ -376,6 +376,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "risc0-statement"
+version = "0.1.0"
+dependencies = [
+ "curve25519-dalek",
+ "ed25519-dalek",
+ "hex",
+ "protocol-core",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
 name = "rustc_version"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

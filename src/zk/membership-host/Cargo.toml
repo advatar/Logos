@@ -1,8 +1,25 @@
 [package]
-name = "zk-membership-host"
+name = "lp0016-membership-host"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+description = "LP-0016 RISC0 host: build proofs from the guest ELF and verify receipts."
+
+# Excluded from the top-level workspace so the default build does not require
+# `cargo-risczero`. Build with the RISC0 toolchain via:
+#
+#     cd src/zk/membership-host && cargo test --features risc0
+#
+# The host links the guest ELF emitted by `membership-guest`; its image id is
+# pinned at integration time.
+[workspace]
+
+[features]
+default = []
+risc0 = ["dep:risc0-zkvm"]
 
 [dependencies]
-# risc0-zkvm = { version = "3.0.5", features = ["client"] }
+risc0-statement = { path = "../../crates/risc0-statement" }
+risc0-zkvm = { version = "3", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "1"

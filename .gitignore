@@ -22,6 +22,9 @@ temp/
 # Rust
 target/
 **/target/
+# Out-of-workspace RISC0 crates manage their own lockfiles; do not commit them.
+src/zk/membership-guest/Cargo.lock
+src/zk/membership-host/Cargo.lock
 
 # Python
 __pycache__/

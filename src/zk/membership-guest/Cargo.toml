@@ -1,9 +1,28 @@
 [package]
-name = "zk-membership-guest"
+name = "lp0016-membership-guest"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+description = "LP-0016 RISC0 guest that proves the membership-and-post statement."
+
+# This crate is excluded from the top-level workspace so the default
+# `cargo build --workspace` does not require `cargo-risczero`. Build it via:
+#
+#     cd src/zk/membership-guest && cargo build --release --target riscv32im-risc0-zkvm-elf
+#
+# after installing the RISC0 toolchain (`rzup install`).
+[workspace]
+
+[features]
+default = []
+# Enables the real `risc0-zkvm` guest entry point. Without this feature the
+# crate compiles as an empty library (handy for IDE / rust-analyzer).
+risc0 = ["dep:risc0-zkvm"]
 
 [dependencies]
-# risc0-zkvm = { version = "3.0.5", default-features = false, features = ["std"] }
-# protocol-core = { path = "../../crates/protocol-core" }
+risc0-statement = { path = "../../crates/risc0-statement" }
+risc0-zkvm = { version = "3", default-features = false, features = ["std"], optional = true }
+
+[[bin]]
+name = "lp0016-membership-guest"
+path = "src/main.rs"

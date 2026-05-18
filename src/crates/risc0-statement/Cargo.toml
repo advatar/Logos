@@ -1,0 +1,18 @@
+[package]
+name = "risc0-statement"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Pure LP-0016 membership-and-post statement, used inside the RISC0 guest and verified on the CPU."
+
+[dependencies]
+curve25519-dalek.workspace = true
+hex.workspace = true
+protocol-core = { path = "../protocol-core" }
+serde.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+ed25519-dalek.workspace = true
+serde_json.workspace = true
