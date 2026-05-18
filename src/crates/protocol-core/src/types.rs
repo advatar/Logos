@@ -109,6 +109,23 @@ impl ZkReceipt {
         })
     }
 
+    pub fn risc0(
+        public_inputs_hash: Hash32,
+        image_id: [u8; 32],
+        journal: Hash32,
+        receipt_bytes: Vec<u8>,
+    ) -> crate::Result<Self> {
+        if public_inputs_hash != journal || receipt_bytes.is_empty() {
+            return Err(crate::ProtocolError::InvalidCertificate);
+        }
+        Ok(Self::Risc0 {
+            public_inputs_hash,
+            image_id,
+            journal,
+            receipt_bytes,
+        })
+    }
+
     pub fn public_inputs_hash(&self) -> Hash32 {
         match self {
             ZkReceipt::Mock(receipt) => receipt.public_inputs_hash,
@@ -129,7 +146,11 @@ impl ZkReceipt {
             ZkReceipt::Mock(receipt) if receipt.valid => Ok(VerifiedZkReceipt::Mock {
                 hidden_commitment_for_local_model: receipt.hidden_commitment_for_local_model,
             }),
-            ZkReceipt::Risc0 { journal, .. } if journal == expected_public_inputs_hash => {
+            ZkReceipt::Risc0 {
+                journal,
+                receipt_bytes,
+                ..
+            } if journal == expected_public_inputs_hash && !receipt_bytes.is_empty() => {
                 Ok(VerifiedZkReceipt::Risc0)
             }
             _ => Err(crate::ProtocolError::InvalidCertificate),
@@ -214,8 +235,103 @@ impl AnonymousPostEnvelope {
     pub fn dleq_domain_seed(&self) -> Hash32 {
         dleq_domain_seed_for(&self.forum_id, &self.post_id)
     }
+
+    pub fn attach_risc0_receipt(
+        &mut self,
+        image_id: [u8; 32],
+        journal: Hash32,
+        receipt_bytes: Vec<u8>,
+    ) -> crate::Result<()> {
+        self.zk_receipt = ZkReceipt::risc0(
+            self.proof_public_inputs_hash,
+            image_id,
+            journal,
+            receipt_bytes,
+        )?;
+        Ok(())
+    }
 }
 
 pub fn dleq_domain_seed_for(forum_id: &Hash32, post_id: &Hash32) -> Hash32 {
     digest("partial-dleq-domain", &[forum_id, post_id])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{DealerShares, MemberSecret, ModeratorId, ModeratorSecret};
+    use ed25519_dalek::SigningKey;
+
+    fn forum_and_registry() -> (ForumConfig, RegistryState, MemberSecret) {
+        let dealer = DealerShares::pedersen_dkg(1, 1, b"receipt-types-dkg");
+        let moderator = ModeratorSecret::new(
+            ModeratorId("alice".into()),
+            SigningKey::from_bytes(&digest("mod-sign-seed", &[b"receipt-types"])),
+            dealer.share_secret_keys[0].clone(),
+        );
+        let forum = ForumConfig {
+            forum_id: digest("forum", &[b"receipt-types"]),
+            k: 1,
+            n: 1,
+            moderators: vec![moderator.identity()],
+            mod_set_version: 1,
+            threshold_public_key: dealer.threshold_public_key,
+        };
+        let member = MemberSecret::from_seed(&forum.forum_id, forum.k, b"member");
+        let mut registry = RegistryState::default();
+        registry
+            .register(member.commitment(&forum.forum_id))
+            .unwrap();
+        (forum, registry, member)
+    }
+
+    #[test]
+    fn risc0_receipt_requires_matching_journal_and_bytes() {
+        let public_hash = digest("public", &[b"inputs"]);
+        let image_id = [7u8; 32];
+
+        let receipt = ZkReceipt::risc0(public_hash, image_id, public_hash, vec![1, 2, 3]).unwrap();
+        assert_eq!(
+            receipt.verify_public_inputs(&public_hash).unwrap(),
+            VerifiedZkReceipt::Risc0
+        );
+
+        assert_eq!(
+            ZkReceipt::risc0(
+                public_hash,
+                image_id,
+                digest("other", &[b"journal"]),
+                vec![1]
+            )
+            .unwrap_err(),
+            crate::ProtocolError::InvalidCertificate
+        );
+        assert_eq!(
+            ZkReceipt::risc0(public_hash, image_id, public_hash, vec![]).unwrap_err(),
+            crate::ProtocolError::InvalidCertificate
+        );
+    }
+
+    #[test]
+    fn post_can_replace_mock_with_risc0_receipt_bytes() {
+        let (forum, registry, member) = forum_and_registry();
+        let mut post = AnonymousPostEnvelope::build(
+            &forum,
+            &registry,
+            &member,
+            digest("content", &[b"receipt"]),
+            b"nonce".to_vec(),
+        );
+        let image_id = [9u8; 32];
+        let journal = post.proof_public_inputs_hash;
+
+        post.attach_risc0_receipt(image_id, journal, vec![4, 5, 6])
+            .unwrap();
+        assert_eq!(
+            post.zk_receipt
+                .verify_public_inputs(&post.proof_public_inputs_hash)
+                .unwrap(),
+            VerifiedZkReceipt::Risc0
+        );
+    }
 }

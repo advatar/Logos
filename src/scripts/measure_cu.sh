@@ -58,6 +58,12 @@ JSON
   exit 0
 fi
 
+RUNTIME_CHECK="$(python3 "$ROOT/scripts/check_lez_runtime.py" 2>/dev/null || true)"
+if [[ -n "$RUNTIME_CHECK" ]] && printf '%s\n' "$RUNTIME_CHECK" | grep -q '"status": "blocked"'; then
+  printf '%s\n' "$RUNTIME_CHECK"
+  exit 0
+fi
+
 if [[ ! -d "$ROOT/methods/guest/src/bin" ]]; then
   cat <<JSON
 {"status":"blocked","measurement":"lez_compute_units","reason":"LEZ runtime binaries are available, but lp0016_registry has no deployable LEZ guest under methods/guest/src/bin yet","available_artifacts":["$SEQUENCER_BIN","$WALLET_BIN"],"required_artifacts":["methods/guest/src/bin/lp0016_registry.rs","registry/program_ids/devnet.txt","registry/program_ids/testnet.txt","docs/performance.md CU table"]}

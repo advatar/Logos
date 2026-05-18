@@ -23,6 +23,9 @@ build/
 *.dmg
 *.AppImage
 *.lgx
+result
+result-*
+node_modules/
 
 # Rust
 target/

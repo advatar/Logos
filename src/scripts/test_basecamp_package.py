@@ -50,6 +50,13 @@ class BasecampPackageTests(unittest.TestCase):
             self.assertIn("./variants/darwin-arm64/Main.qml", names)
             self.assertIn("./variants/darwin-arm64/metadata.json", names)
 
+    def test_qml_inspector_click_through_spec_exists(self):
+        test_file = APP_DIR / "ui-tests.mjs"
+        script = test_file.read_text()
+
+        self.assertIn("click through the full moderation flow", script)
+        self.assertIn("receipt cannot prove non-membership", script)
+
 
 if __name__ == "__main__":
     unittest.main()

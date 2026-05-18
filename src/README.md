@@ -29,8 +29,8 @@ This is not a final prize submission. The repo fixes the previously underspecifi
 
 - `ZkReceipt::Mock` is used by local tests until the external RISC0 proving toolchain is installed.
 - threshold encryption is represented as a test/development oracle only in the dependency-free Python simulator; Rust uses threshold ElGamal with DLEQ partials.
-- SPEL/LEZ deployment still requires a deployable `methods/guest/src/bin/lp0016_registry.rs` guest or a migration to the `lez-framework` scaffold shape.
-- Basecamp has an embeddable `ui_qml` package harness plus Rust core-module bridge; the official Basecamp runtime boots locally, but full automated click-through still needs the Basecamp/QML inspector test harness.
+- SPEL/LEZ deployment still requires a deployable `methods/guest/src/bin/lp0016_registry.rs` guest and migration to the `lez-framework` scaffold shape. `scripts/check_lez_runtime.py` reports the exact local blockers, including the current circuits-version mismatch.
+- Basecamp has an embeddable `ui_qml` package harness, a Rust core-module bridge, and `app/basecamp-forum/ui-tests.mjs` for QML inspector click-through. Running the click-through still needs `logos-qt-mcp` and a built Basecamp app.
 
 The production path is documented in `SPEC.md` and `docs/protocol.md`.
 
@@ -53,7 +53,7 @@ app/basecamp-forum         Basecamp QML flow and core-module bridge
 
 1. Add the deployable LEZ guest wrapper for `lp0016_registry` or migrate the registry crate to the `lez-framework` scaffold shape.
 2. Capture `register_member` / `slash_member` CU numbers after deploy/invoke reporting is available.
-3. Wire generated RISC0 receipt bytes from the app flow into `ZkReceipt::Risc0`.
+3. Replace local mock post receipts with real RISC0 receipts once the guest image build is available; the host, SDK, and Basecamp core module now accept serialized receipt bytes.
 4. Wire `moderation-sdk` storage and messaging traits to Logos Storage/Delivery.
 5. Run the packaged Basecamp LGX through the QML inspector harness.
 

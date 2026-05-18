@@ -150,6 +150,17 @@ impl<S: OffchainStore, Q: RetryQueue> ForumSdk<S, Q> {
         ))
     }
 
+    pub fn attach_risc0_receipt(
+        &self,
+        post: &mut AnonymousPostEnvelope,
+        image_id: [u8; 32],
+        journal: Hash32,
+        receipt_bytes: Vec<u8>,
+    ) -> protocol_core::Result<()> {
+        post.attach_risc0_receipt(image_id, journal, receipt_bytes)?;
+        verify_post(&self.registry, &self.forum, post)
+    }
+
     pub fn persist_post(&mut self, post: &AnonymousPostEnvelope) -> Result<String> {
         let bytes = serde_json::to_vec(post)?;
         self.put_with_retry(&storage_namespace(StorageKind::Post, &post.forum_id), bytes)
@@ -345,5 +356,35 @@ mod tests {
             RetryTask::Put { namespace, .. } => assert!(namespace.starts_with("post/")),
             other => panic!("unexpected retry task: {other:?}"),
         }
+    }
+
+    #[test]
+    fn app_flow_can_attach_risc0_receipt_bytes() {
+        let (forum, member) = forum();
+        let mut sdk = ForumSdk::new(forum, MemoryStore::default()).unwrap();
+        sdk.register_member(&member).unwrap();
+        let mut post = sdk
+            .build_post(
+                &member,
+                protocol_core::digest("content", &[b"risc0"]),
+                b"nonce".to_vec(),
+            )
+            .unwrap();
+        let journal = post.proof_public_inputs_hash;
+
+        sdk.attach_risc0_receipt(
+            &mut post,
+            [3u8; 32],
+            journal,
+            b"serialized-risc0-receipt".to_vec(),
+        )
+        .unwrap();
+
+        assert!(matches!(
+            post.zk_receipt
+                .verify_public_inputs(&post.proof_public_inputs_hash)
+                .unwrap(),
+            VerifiedZkReceipt::Risc0
+        ));
     }
 }

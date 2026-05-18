@@ -6,6 +6,16 @@
 - Parent close-the-gaps issue: https://github.com/advatar/Logos/issues/2
 - Current close-all-gaps pass: https://github.com/advatar/Logos/issues/3
 - Runtime build continuation: https://github.com/advatar/Logos/issues/4
+- No-Noir final blocker pass: https://github.com/advatar/Logos/issues/5
+
+## Active No-Noir Final Blocker Pass
+
+- [x] Determine the smallest deployable LEZ guest / `lez-framework` migration path that keeps the Rust 1.82 workspace green. The generated `lez-framework` template needs a workspace-lints patch, then the current local build stops on `logos-blockchain-circuits v0.4.1` versus the framework's `v0.4.2` requirement.
+- [x] Add local scripts/tests for LEZ guest build/deploy/CU capture or record exact scaffold blockers. `scripts/check_lez_runtime.py` now reports framework-kind, guest-source, circuits-version, binary, and localnet blockers as JSON; `scripts/measure_cu.sh` delegates to it before claiming CU readiness.
+- [x] Improve Basecamp QML inspector click-through automation or record the exact missing harness/tooling. `app/basecamp-forum/ui-tests.mjs` now clicks through the LP-0016 flow when `logos-qt-mcp` and a Basecamp app binary are available; `scripts/check_basecamp_inspector.py` reports missing runtime pieces as JSON.
+- [x] Wire app-flow RISC0 receipt bytes into the boundary where feasible while keeping local mock demos available. `protocol-core`, `moderation-sdk`, `lp0016-membership-host`, and the Basecamp core module now expose serialized receipt byte attachment/conversion paths.
+- [x] Run full verification for the local pieces that can run without the missing external runtimes.
+- [ ] Commit, push, and update GitHub issues.
 
 ## Active Runtime Build Pass
 
@@ -35,26 +45,28 @@
 
 ## External Blockers
 
-- [ ] LEZ registry deployment / CU measurement: LEZ binaries now build and the localnet can be held live for `logos-scaffold doctor`, but `logos-scaffold deploy lp0016_registry --json` fails because this repo has no deployable `methods/guest/src/bin/lp0016_registry.rs` guest yet. `scripts/measure_cu.sh` now reports this exact blocker instead of the old missing-circuits message.
+- [ ] LEZ registry deployment / CU measurement: LEZ binaries from the previous pinned setup exist, but the deployable path is still blocked by three concrete checks: `scaffold.toml` is still `framework.kind = "default"`, this repo has no `methods/guest/src/bin/lp0016_registry.rs`, and the installed `~/.logos-blockchain-circuits` is `v0.4.1` while the current `lez-framework` probe expects `v0.4.2`. `scripts/check_lez_runtime.py` and `scripts/measure_cu.sh` now report those blockers as JSON.
 - [ ] Real SPEL macro flip: `logos-scaffold build idl` is available, but v0.1.1 only emits IDL for `framework.kind = "lez-framework"` and expects the generated client crate layout. This repo stays on `framework.kind = "default"` until the registry can migrate without breaking `cargo build --workspace`.
-- [ ] Basecamp automated click-through: official runtime v0.1.1 boots and the app packages as LGX, but full UI interaction still needs the Basecamp/QML inspector harness. Local source build is blocked by missing `nix`, `cmake`, `ninja`, and Qt tools.
-- [ ] Full RISC0 proof generation from the app flow: feature-gated host checks pass, but the demo script still performs the local host feature test rather than producing a real application receipt. Wiring generated receipt bytes into `ZkReceipt::Risc0` remains dependent on the final guest image build/receipt packaging flow.
+- [ ] Basecamp automated click-through: official runtime v0.1.1 boots and the app packages as LGX. The LP-0016 click-through spec now exists, but running it is blocked locally by missing `logos-qt-mcp`, missing `nix`, and no `LOGOS_BASECAMP_APP` executable path. `scripts/check_basecamp_inspector.py` reports the exact missing pieces.
+- [ ] Full RISC0 proof generation from the app flow: feature-gated host checks pass and generated receipt bytes can now be converted/attached to `ZkReceipt::Risc0`; the remaining blocker is producing the final guest image and serialized receipt from the application flow rather than the current local host feature test.
 
 ## Current Verification
 
 - `cd src && python3 scripts/demo_e2e.py`: passed.
-- `cd src && python3 -m unittest scripts/test_protocol.py scripts/test_basecamp_package.py`: passed, 10 tests.
+- `cd src && python3 -m unittest scripts/test_protocol.py scripts/test_basecamp_package.py scripts/test_runtime_checks.py`: passed, 13 tests.
 - `cd src && cargo build --workspace`: passed.
-- `cd src && cargo test --workspace`: passed, 44 Rust tests across workspace crates plus doc-tests.
+- `cd src && cargo test --workspace`: passed, 49 Rust tests across workspace crates plus doc-tests.
+- `cd src && cargo test --manifest-path zk/membership-host/Cargo.toml`: passed.
 - `cd src && scripts/demo_e2e.sh`: passed, including registry JSON emission and `slash-verifier` CLI verification.
 - `cd src && RISC0_DEV_MODE=0 scripts/demo_e2e.sh`: passed, including feature-gated RISC0 host tests under `cargo +stable`.
 - `cd src/lean && lake build`: passed.
 - `cd src && ./scripts/package_basecamp.sh /tmp/lp0016-basecamp`: passed and emitted `lp0016-anon-forum-demo.lgx`.
-- `logos-basecamp v0.1.1` DMG boot smoke: passed; runtime reached "Logos Core started successfully".
-- `cd src && ./scripts/measure_cu.sh`: passed script execution and emitted structured blocked JSON for missing deployable `methods/guest/src/bin/lp0016_registry.rs`.
+- `cd src && ./scripts/measure_cu.sh`: passed script execution and emitted structured blocked JSON for `framework.kind = "default"`, missing `methods/guest/src/bin/lp0016_registry.rs`, and circuits `v0.4.1` versus expected `v0.4.2`.
+- `cd src && python3 scripts/check_lez_runtime.py && python3 scripts/check_basecamp_inspector.py`: passed script execution; both intentionally reported blocked JSON for missing external runtime pieces.
 - `cd src && ~/.cargo/bin/logos-scaffold build idl`: ran; skipped because scaffold framework kind is `default`.
 - `cd src && ~/.cargo/bin/logos-scaffold deploy lp0016_registry --json`: failed with the expected current blocker, missing `methods/guest/src/bin`.
-- `cd src && ~/.cargo/bin/logos-scaffold doctor`: with a live sequencer, reported 16 PASS, 1 WARN, 0 FAIL. The remaining warning is the generated LEZ cache working tree dirty after scaffold patched the sequencer debug config for localnet.
+- `cd src && ~/.cargo/bin/logos-scaffold doctor`: reported 13 PASS, 4 WARN, 0 FAIL with localnet not running; remaining WARNs are LEZ cache working tree dirty plus sequencer/localnet reachability.
+- `logos-basecamp v0.1.1` DMG boot smoke: previously passed; runtime reached "Logos Core started successfully".
 
 ## Notes
 

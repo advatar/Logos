@@ -40,6 +40,15 @@ pub enum ZkReceipt {
     Risc0 { public_inputs_hash, image_id, journal, receipt_bytes },
 }
 
+impl ZkReceipt {
+    pub fn risc0(public_inputs_hash, image_id, journal, receipt_bytes) -> Result<Self>;
+    pub fn verify_public_inputs(&self, expected_public_inputs_hash) -> Result<VerifiedZkReceipt>;
+}
+
+impl AnonymousPostEnvelope {
+    pub fn attach_risc0_receipt(&mut self, image_id, journal, receipt_bytes) -> Result<()>;
+}
+
 pub struct ModerationCertificate {
     pub statement: CertificateStatement,
     pub votes: Vec<ModerationVote>,                 // ≥ N distinct Ed25519 signatures
@@ -74,6 +83,7 @@ fn new(forum: ForumConfig, store: S) -> Result<Self>;
 fn with_retry_queue(forum: ForumConfig, store: S, retry_queue: Q) -> Result<Self>;
 fn register_member(&mut self, member: &MemberSecret) -> Result<Hash32>;
 fn build_post(&mut self, member, content_id, nonce) -> Result<AnonymousPostEnvelope>;
+fn attach_risc0_receipt(&self, post, image_id, journal, receipt_bytes) -> Result<()>;
 fn persist_post(&mut self, post: &AnonymousPostEnvelope) -> Result<String>;
 fn persist_vote(&mut self, forum_id: &Hash32, vote: &ModerationVote) -> Result<String>;
 fn persist_certificate(&mut self, cert: &ModerationCertificate) -> Result<String>;

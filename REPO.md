@@ -2,9 +2,10 @@ Current placeholder audit after the latest build pass:
 
 - The Rust/Python/Lean protocol layers are implemented and tested locally.
 - The Basecamp app is no longer only a loose QML placeholder: it is an embeddable `ui_qml` module and can be packaged as an LGX with `src/scripts/package_basecamp.sh`.
-- The LEZ/SPEL registry remains the main placeholder boundary: `src/registry/lp0016-registry` is a tested Rust boundary plus hand-written IDL, but there is not yet a deployable `src/methods/guest/src/bin/lp0016_registry.rs` LEZ guest.
-- CU measurement remains blocked on that deployable LEZ guest and scaffold deploy/invoke reporting, not on missing LEZ binaries anymore.
-- Full app-flow RISC0 receipt packaging is still open: `ZkReceipt::Risc0` exists, but local demos still use mock receipts except for feature-gated host checks.
+- The LEZ/SPEL registry remains the main placeholder boundary: `src/registry/lp0016-registry` is a tested Rust boundary plus hand-written IDL, but there is not yet a deployable `src/methods/guest/src/bin/lp0016_registry.rs` LEZ guest. `src/scripts/check_lez_runtime.py` now records the exact blockers instead of papering over them.
+- CU measurement remains blocked on the deployable LEZ guest, `lez-framework` migration, and the current local circuits cache mismatch (`v0.4.1` installed, `v0.4.2` expected by the probed `lez-framework` stack).
+- Full app-flow RISC0 proof generation is still open, but receipt byte wiring is no longer only a placeholder: `ZkReceipt::Risc0`, the SDK, the RISC0 host, and the Basecamp core module now accept serialized receipt bytes.
+- Basecamp click-through is no longer only a manual note: `src/app/basecamp-forum/ui-tests.mjs` defines the QML inspector flow, and `src/scripts/check_basecamp_inspector.py` records missing `logos-qt-mcp` / app-binary prerequisites.
 
 Delivered a starter repository here:
 
