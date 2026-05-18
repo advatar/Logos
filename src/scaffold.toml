@@ -2,9 +2,6 @@
 version = "0.1.0"
 cache_root = ".scaffold/cache"
 
-[project]
-name = "lp0016-anon-forum"
-
 [repos.lez]
 url = "https://github.com/logos-blockchain/logos-execution-zone.git"
 source = "https://github.com/logos-blockchain/logos-execution-zone.git"
@@ -25,6 +22,3 @@ path = "registry/idl"
 [localnet]
 port = 3040
 risc0_dev_mode = true
-
-[modules.lp0016_forum]
-path = "app/basecamp-forum"

@@ -17,6 +17,7 @@ jobs:
           python-version: '3.12'
       - run: python3 scripts/demo_e2e.py
       - run: python3 -m unittest scripts/test_protocol.py
+      - run: python3 -m unittest scripts/test_basecamp_package.py
 
   rust:
     runs-on: ubuntu-latest
@@ -52,6 +53,7 @@ jobs:
       - run: test -f app/basecamp-forum/Main.qml
       - run: grep -q "Submit slash" app/basecamp-forum/Main.qml
       - run: grep -q "post after slash rejected" app/basecamp-forum/Main.qml
+      - run: ./scripts/package_basecamp.sh /tmp/lp0016-basecamp
 
   lean:
     runs-on: ubuntu-latest

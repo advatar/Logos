@@ -48,4 +48,12 @@ The dominant cost is expected to be the Ristretto255 point multiplications insid
 
 `cargo run -p registry-sim` and `python3 scripts/demo_e2e.py` are correctness oracles, not perf metrics. Their wall-clock numbers do not reflect production proving costs.
 
-`scripts/measure_cu.sh` emits structured JSON. Until `logos-scaffold` and a pinned LEZ localnet/devnet are available, the script reports `{"status":"blocked","measurement":"lez_compute_units",...}` so CI can distinguish missing infrastructure from a broken script.
+`scripts/measure_cu.sh` emits structured JSON and now distinguishes the scaffold stages:
+
+- missing `logos-scaffold`;
+- missing LEZ `sequencer_service` / `wallet` binaries;
+- localnet not ready;
+- no deployable `methods/guest/src/bin/lp0016_registry.rs` guest yet;
+- localnet ready but CU capture still blocked on the deploy/invoke reporting path.
+
+The current repository has the LEZ binaries after `logos-scaffold setup`, but it still reports `{"status":"blocked","measurement":"lez_compute_units",...}` until the registry has a deployable LEZ guest and program IDs for devnet/testnet are recorded.

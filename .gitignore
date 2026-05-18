@@ -18,6 +18,11 @@ Thumbs.db
 *.temp
 tmp/
 temp/
+dist/
+build/
+*.dmg
+*.AppImage
+*.lgx
 
 # Rust
 target/

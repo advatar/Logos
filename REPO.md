@@ -1,3 +1,11 @@
+Current placeholder audit after the latest build pass:
+
+- The Rust/Python/Lean protocol layers are implemented and tested locally.
+- The Basecamp app is no longer only a loose QML placeholder: it is an embeddable `ui_qml` module and can be packaged as an LGX with `src/scripts/package_basecamp.sh`.
+- The LEZ/SPEL registry remains the main placeholder boundary: `src/registry/lp0016-registry` is a tested Rust boundary plus hand-written IDL, but there is not yet a deployable `src/methods/guest/src/bin/lp0016_registry.rs` LEZ guest.
+- CU measurement remains blocked on that deployable LEZ guest and scaffold deploy/invoke reporting, not on missing LEZ binaries anymore.
+- Full app-flow RISC0 receipt packaging is still open: `ZkReceipt::Risc0` exists, but local demos still use mock receipts except for feature-gated host checks.
+
 Delivered a starter repository here:
 
 [Download the ZIP](sandbox:/mnt/data/lp0016-anon-forum-starter.zip?_chatgptios_conversationID=6a0a0650-f5f4-8395-9b54-1237ffa02ba0&_chatgptios_messageID=e1d7c8cc-70b3-4956-b300-39c0abf5f0c2)
