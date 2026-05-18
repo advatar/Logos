@@ -15,7 +15,7 @@
 - [x] Improve Basecamp QML inspector click-through automation or record the exact missing harness/tooling. `app/basecamp-forum/ui-tests.mjs` now clicks through the LP-0016 flow when `logos-qt-mcp` and a Basecamp app binary are available; `scripts/check_basecamp_inspector.py` reports missing runtime pieces as JSON.
 - [x] Wire app-flow RISC0 receipt bytes into the boundary where feasible while keeping local mock demos available. `protocol-core`, `moderation-sdk`, `lp0016-membership-host`, and the Basecamp core module now expose serialized receipt byte attachment/conversion paths.
 - [x] Run full verification for the local pieces that can run without the missing external runtimes.
-- [ ] Commit, push, and update GitHub issues.
+- [x] Commit, push, and update GitHub issues (#2, #3, #4, #5).
 
 ## Active Runtime Build Pass
 
