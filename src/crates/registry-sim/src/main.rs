@@ -1,20 +1,28 @@
+use ed25519_dalek::SigningKey;
 use moderation_sdk::{ForumSdk, MemoryStore};
 use protocol_core::*;
 
-fn moderator(name: &str) -> ModeratorSecret {
-    let seed: [u8; 32] = digest("mod-seed", &[name.as_bytes()]);
-    ModeratorSecret::from_seed(ModeratorId(name.to_string()), &seed)
+fn build_moderator(name: &str, share: ShareSecretKey) -> ModeratorSecret {
+    let seed: [u8; 32] = digest("mod-sign-seed", &[name.as_bytes()]);
+    ModeratorSecret::new(ModeratorId(name.to_string()), SigningKey::from_bytes(&seed), share)
 }
 
 fn main() -> anyhow::Result<()> {
-    let mods = ["alice", "bob", "carol"].map(moderator);
+    let dealer = DealerShares::trusted(2, 3, b"registry-sim-dealer");
+    let names = ["alice", "bob", "carol"];
+    let mods: Vec<ModeratorSecret> = names
+        .iter()
+        .zip(dealer.share_secret_keys.iter())
+        .map(|(n, sk)| build_moderator(n, sk.clone()))
+        .collect();
+
     let forum = ForumConfig {
         forum_id: digest("forum", &[b"registry-sim"]),
         k: 2,
         n: 2,
         moderators: mods.iter().map(ModeratorSecret::identity).collect(),
         mod_set_version: 1,
-        threshold_public_key_hash: digest("threshold-pk", &[b"registry-sim"]),
+        threshold_public_key: dealer.threshold_public_key,
     };
     let mut sdk = ForumSdk::new(forum, MemoryStore::default())?;
     let member = MemberSecret::from_seed(&sdk.forum.forum_id, sdk.forum.k, b"member-seed");
@@ -30,7 +38,8 @@ fn main() -> anyhow::Result<()> {
             sdk.create_moderation_vote(&mods[0], &post, reason)?,
             sdk.create_moderation_vote(&mods[1], &post, reason)?,
         ];
-        certs.push(sdk.aggregate_certificate(&post, reason, votes)?);
+        let partials = vec![mods[0].partial_decrypt(&post), mods[1].partial_decrypt(&post)];
+        certs.push(sdk.aggregate_certificate(&post, reason, votes, partials)?);
     }
 
     let slash = sdk.submit_slash(&certs)?;

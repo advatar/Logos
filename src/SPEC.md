@@ -64,9 +64,9 @@ C2 = encode(x, y) XOR KDF(K, len(encode(x, y)))
 
 ### Implementation status
 
-- Rust `protocol-core`: **production** Ristretto255 scalar field and **production** Ed25519 moderator signatures. Canonical transcript framing matches the rules in §3. `ForumConfig` carries `threshold_public_key_hash` and certificate statements bind it.
-- Rust `protocol-core`: **dev** placeholders still in place for the threshold-decryption oracle (`DevThresholdOracle`) and the membership/post receipt (`MockZkReceipt`). The threshold ElGamal + DLEQ design is what these will be replaced with — see `STATUS.md → Close-the-gaps plan`.
-- Python `lp0016_sim.py`: stays on the dev field (`2^61 - 1`) and the dev SHA-256-derived moderator signature. SPEC.md keeps it dependency-free; the production crypto lives in Rust. Python mirrors every transcript binding the Rust core enforces (forum_id, mod_set_version, threshold_public_key_hash, K, N), so changes to the protocol-level transcript must update both.
+- Rust `protocol-core`: **production** Ristretto255 scalar field, **production** Ed25519 moderator signatures, and **production** threshold ElGamal over Ristretto255 with Chaum–Pedersen DLEQ partial-decryption proofs (`ThresholdPublicKey`, `ShareSecretKey`/`SharePublicKey`, `Ciphertext`, `PartialDecryption`, `DleqProof`). `ForumConfig` carries the actual threshold public key (its hash is derived for transcripts). `AnonymousPostEnvelope` carries the real `Ciphertext`. `ModerationCertificate` carries `Vec<PartialDecryption>`; `verify_certificate` validates every DLEQ against the moderator's `share_public_key` and the slash verifier aggregates trustlessly. Canonical transcript framing matches §3.
+- Rust `protocol-core`: still **dev** — `MockZkReceipt` stand-in for the RISC0 membership/post receipt and a trusted-dealer DKG (`DealerShares::trusted`). Real DKG (Pedersen) and the RISC0 guest+host are tracked in `STATUS.md`.
+- Python `lp0016_sim.py`: stays on the dev field (`2^61 - 1`), the dev SHA-256-derived moderator signature, and the `ThresholdOracle` HashMap. SPEC.md keeps it dependency-free; the production crypto lives in Rust. Python mirrors every protocol-level transcript binding the Rust core enforces (forum_id, mod_set_version, threshold_public_key_hash, K, N), so changes to the protocol-level transcript must update both.
 
 ## 3. Serialization and domain separation
 

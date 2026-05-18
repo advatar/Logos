@@ -46,7 +46,6 @@ pub struct ForumSdk<S: OffchainStore> {
     pub forum: ForumConfig,
     pub registry: RegistryState,
     pub store: S,
-    pub dev_oracle: DevThresholdOracle,
 }
 
 impl<S: OffchainStore> ForumSdk<S> {
@@ -60,7 +59,7 @@ impl<S: OffchainStore> ForumSdk<S> {
         if forum.n as usize > forum.moderators.len() {
             return Err(ProtocolError::ThresholdTooLarge);
         }
-        Ok(Self { forum, registry: RegistryState::default(), store, dev_oracle: DevThresholdOracle::default() })
+        Ok(Self { forum, registry: RegistryState::default(), store })
     }
 
     pub fn register_member(&mut self, member: &MemberSecret) -> protocol_core::Result<Hash32> {
@@ -74,9 +73,7 @@ impl<S: OffchainStore> ForumSdk<S> {
         if !self.registry.is_active(&commitment) {
             return Err(ProtocolError::CommitmentNotActive);
         }
-        let (post, share) = AnonymousPostEnvelope::new_dev(&self.forum, member, content_id, nonce);
-        self.dev_oracle.remember(post.ciphertext_hash, share);
-        Ok(post)
+        Ok(AnonymousPostEnvelope::build(&self.forum, member, content_id, nonce))
     }
 
     pub fn persist_post(&mut self, post: &AnonymousPostEnvelope) -> Result<String> {
@@ -102,11 +99,15 @@ impl<S: OffchainStore> ForumSdk<S> {
         create_vote(&self.forum, moderator, &st)
     }
 
+    /// Aggregate a certificate from the moderators' votes and partial
+    /// decryptions. Caller supplies one [`PartialDecryption`] per moderator
+    /// (caller is responsible for collecting them from the moderator clients).
     pub fn aggregate_certificate(
         &self,
         post: &AnonymousPostEnvelope,
         reason_hash: Hash32,
         votes: Vec<ModerationVote>,
+        partial_decryptions: Vec<PartialDecryption>,
     ) -> protocol_core::Result<ModerationCertificate> {
         let st = statement_for(
             &self.forum,
@@ -116,12 +117,12 @@ impl<S: OffchainStore> ForumSdk<S> {
             post.ciphertext_hash,
             reason_hash,
         );
-        let distinct = votes.iter().map(|v| v.moderator_id.clone()).collect::<std::collections::BTreeSet<_>>();
-        if distinct.len() < self.forum.n as usize {
-            return Err(ProtocolError::PartialCertificate);
-        }
-        let share = self.dev_oracle.decrypt(&post.ciphertext_hash).ok_or(ProtocolError::InvalidCertificate)?;
-        let cert = ModerationCertificate { statement: st, votes, revealed_share: share };
+        let cert = ModerationCertificate {
+            statement: st,
+            votes,
+            ciphertext: post.ciphertext.clone(),
+            partial_decryptions,
+        };
         verify_certificate(&self.forum, &cert)?;
         Ok(cert)
     }

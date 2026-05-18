@@ -32,12 +32,16 @@ Open follow-ups for this phase:
 - [ ] Add a Rust property test for `mod_set_version` rotation rejection (Python has the equivalent for threshold-key rotation; Rust covers cross-forum but not mod-set-version yet).
 - [ ] Add a fuzz target around `interpolate_coeffs` for malformed share inputs.
 
-### Phase 2 — Threshold ElGamal + DLEQ
+### Phase 2 — Threshold ElGamal + DLEQ ✅ (DKG deferred)
 
-- [ ] New module `protocol-core::threshold` with: distributed key generation output (`ThresholdPublicKey`, per-moderator `ShareSecretKey`/`SharePublicKey`), hybrid encryption of `(x, y)` payload (`KEM = H("kem", rY)` ⊕ XOF), partial decryption `D_i = s_i C1`, DLEQ proof that `D_i` matches `SharePublicKey_i` with the same exponent, aggregator that interpolates over public-key shares to recover `D = sC1` and decrypts.
-- [ ] Add `ChaCha20-XOF`-style KDF on top of `Sha256` keyed by `KEM` for the hybrid leg (no extra deps; SHA-256 counter mode is fine).
-- [ ] Replace `DevThresholdOracle` in `moderation-sdk` with a `ThresholdSession` that holds the public threshold key and the local moderator's share key; `aggregate_certificate` collects partial decryptions + DLEQ proofs and verifies them.
-- [ ] Add unit tests: encrypt-then-threshold-decrypt round trip, DLEQ rejects a partial decryption with a mismatched exponent, fewer than N partials fail aggregation.
+- [x] New module `protocol-core::threshold` with `ThresholdPublicKey`, per-moderator `ShareSecretKey` / `SharePublicKey`, hybrid encryption of the 64-byte `(x, y)` payload (`KEM = H("kem", rY)` keying a SHA-256 counter-mode KDF), partial decryption `D_i = s_i · C1`, Chaum–Pedersen DLEQ proof binding `D_i` to its committed `S_i = s_i · G`, Lagrange-at-zero aggregator that recovers the plaintext from N verified partials.
+- [x] SHA-256 counter-mode KDF (no extra deps).
+- [x] `DevThresholdOracle` removed. `AnonymousPostEnvelope` carries the real `Ciphertext`; `ModerationCertificate` carries `Vec<PartialDecryption>` (DLEQ-proven). `verify_certificate` checks each partial against the moderator's `share_public_key`, rejects duplicate indices, and `cert.revealed_share(forum)` aggregates trustlessly. `slash` no longer trusts an input share — it recomputes from the partials.
+- [x] Unit tests: dealer-shares threshold property (Lagrange-at-zero recovers the master secret), end-to-end encrypt/partial-decrypt/aggregate round trip, DLEQ rejects wrong-key partials, fewer-than-threshold partials do not recover, JSON round trip, cross-mod-set-version cert rejection.
+
+Deferred for follow-up:
+- [ ] Real DKG (e.g. Pedersen) replacing `DealerShares::trusted`. The trusted-dealer is fine for tests/demos and clearly labeled, but production needs no single party that ever sees `s`.
+- [ ] Batch DLEQ verification for large `N` (current code verifies one at a time).
 
 ### Phase 3 — Registry roots + Merkle paths
 

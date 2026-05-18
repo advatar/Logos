@@ -367,6 +367,7 @@ name = "registry-sim"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "ed25519-dalek",
  "moderation-sdk",
  "protocol-core",
 ]
@@ -455,6 +456,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "ed25519-dalek",
  "hex",
  "protocol-core",
  "serde",

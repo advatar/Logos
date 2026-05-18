@@ -3,7 +3,11 @@ use std::collections::BTreeSet;
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
-use crate::{digest, ForumConfig, Hash32, ModeratorId, ModeratorIdentity, ProtocolError, Result, Share};
+use crate::{
+    aggregate_decrypt, decode_share, digest, dleq_domain_seed_for, verify_partial,
+    AnonymousPostEnvelope, Ciphertext, ForumConfig, Hash32, ModeratorId, ModeratorIdentity,
+    PartialDecryption, ProtocolError, Result, Share, SharePublicKey, ShareSecretKey,
+};
 
 /// 64-byte Ed25519 signature serialized as a fixed array for canonical bytes.
 type SignatureBytes = [u8; 64];
@@ -55,31 +59,68 @@ pub struct ModerationVote {
 pub struct ModerationCertificate {
     pub statement: CertificateStatement,
     pub votes: Vec<ModerationVote>,
-    pub revealed_share: Share,
+    pub ciphertext: Ciphertext,
+    pub partial_decryptions: Vec<PartialDecryption>,
 }
 
-/// A moderator's local signing material. Production storage should keep this
-/// behind hardware key isolation; this type provides the protocol interface.
+impl ModerationCertificate {
+    /// Aggregate the partial decryptions and recover the encoded Shamir share.
+    /// Assumes [`verify_certificate`] has already validated the partials.
+    pub fn revealed_share(&self, forum: &ForumConfig) -> Result<Share> {
+        let pk_shares: Vec<SharePublicKey> = self
+            .partial_decryptions
+            .iter()
+            .map(|pd| {
+                forum
+                    .share_public_key(pd.idx)
+                    .copied()
+                    .ok_or(ProtocolError::InvalidModerator)
+            })
+            .collect::<Result<_>>()?;
+        let plaintext = aggregate_decrypt(&self.ciphertext, &self.partial_decryptions, &pk_shares)?;
+        decode_share(&plaintext)
+    }
+}
+
+/// A moderator's local signing + threshold-share secret material.
 #[derive(Debug)]
 pub struct ModeratorSecret {
     pub id: ModeratorId,
     signing_key: SigningKey,
+    pub share_secret_key: ShareSecretKey,
 }
 
 impl ModeratorSecret {
-    pub fn from_seed(id: ModeratorId, seed: &[u8; 32]) -> Self {
-        Self { id, signing_key: SigningKey::from_bytes(seed) }
+    pub fn new(id: ModeratorId, signing_key: SigningKey, share_secret_key: ShareSecretKey) -> Self {
+        Self { id, signing_key, share_secret_key }
+    }
+
+    pub fn from_seed_and_share(id: ModeratorId, seed: &[u8; 32], share_secret_key: ShareSecretKey) -> Self {
+        Self {
+            id,
+            signing_key: SigningKey::from_bytes(seed),
+            share_secret_key,
+        }
     }
 
     pub fn identity(&self) -> ModeratorIdentity {
         ModeratorIdentity {
             id: self.id.clone(),
             verifying_key: self.signing_key.verifying_key().to_bytes(),
+            share_public_key: self.share_secret_key.public(),
         }
     }
 
     fn sign(&self, message: &[u8]) -> Signature {
         self.signing_key.sign(message)
+    }
+
+    /// Produce a partial decryption of the post's ciphertext, with a DLEQ
+    /// proof bound to the post's domain seed.
+    pub fn partial_decrypt(&self, post: &AnonymousPostEnvelope) -> PartialDecryption {
+        let pk_share = self.share_secret_key.public();
+        let domain_seed = post.dleq_domain_seed();
+        crate::partial_decrypt(&self.share_secret_key, &post.ciphertext, &pk_share, &domain_seed)
     }
 }
 
@@ -101,7 +142,7 @@ pub fn statement_for(
         mod_set_version: forum.mod_set_version,
         k: forum.k,
         n: forum.n,
-        threshold_public_key_hash: forum.threshold_public_key_hash,
+        threshold_public_key_hash: forum.threshold_public_key_hash(),
     }
 }
 
@@ -127,7 +168,7 @@ pub fn verify_vote(forum: &ForumConfig, vote: &ModerationVote, statement_hash: &
     if &vote.statement_hash != statement_hash {
         return false;
     }
-    let Some(identity) = forum.moderators.iter().find(|m| m.id == vote.moderator_id) else {
+    let Some(identity) = forum.find_moderator(&vote.moderator_id) else {
         return false;
     };
     let Ok(vk) = VerifyingKey::from_bytes(&identity.verifying_key) else {
@@ -143,12 +184,18 @@ pub fn verify_certificate(forum: &ForumConfig, cert: &ModerationCertificate) -> 
         || st.k != forum.k
         || st.n != forum.n
         || st.mod_set_version != forum.mod_set_version
-        || st.threshold_public_key_hash != forum.threshold_public_key_hash
+        || st.threshold_public_key_hash != forum.threshold_public_key_hash()
     {
+        return Err(ProtocolError::InvalidCertificate);
+    }
+    if cert.ciphertext.hash() != st.ciphertext_hash {
         return Err(ProtocolError::InvalidCertificate);
     }
     let distinct: BTreeSet<_> = cert.votes.iter().map(|v| v.moderator_id.clone()).collect();
     if distinct.len() < forum.n as usize {
+        return Err(ProtocolError::PartialCertificate);
+    }
+    if cert.partial_decryptions.len() < forum.n as usize {
         return Err(ProtocolError::PartialCertificate);
     }
     let h = st.hash();
@@ -157,13 +204,24 @@ pub fn verify_certificate(forum: &ForumConfig, cert: &ModerationCertificate) -> 
             return Err(ProtocolError::InvalidVoteStatement);
         }
     }
+    let domain_seed = dleq_domain_seed_for(&st.forum_id, &st.post_id);
+    let mut seen_idx = BTreeSet::new();
+    for pd in &cert.partial_decryptions {
+        let pk_share = forum.share_public_key(pd.idx).ok_or(ProtocolError::InvalidModerator)?;
+        if !verify_partial(pd, &cert.ciphertext, pk_share, &domain_seed) {
+            return Err(ProtocolError::InvalidCertificate);
+        }
+        if !seen_idx.insert(pd.idx) {
+            return Err(ProtocolError::InvalidCertificate);
+        }
+    }
     Ok(())
 }
 
 mod serde_signature_bytes {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    pub fn serialize<S: Serializer>(bytes: &[u8; 64], ser: S) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer>(bytes: &[u8; 64], ser: S) -> std::result::Result<S::Ok, S::Error> {
         if ser.is_human_readable() {
             ser.serialize_str(&hex::encode(bytes))
         } else {
@@ -171,7 +229,7 @@ mod serde_signature_bytes {
         }
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<[u8; 64], D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(de: D) -> std::result::Result<[u8; 64], D::Error> {
         use serde::de::Error;
         if de.is_human_readable() {
             let s = String::deserialize(de)?;

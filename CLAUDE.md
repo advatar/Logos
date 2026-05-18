@@ -74,11 +74,19 @@ The protocol implements an **anonymous forum with K-strike slashing**: each memb
 
 ### Dev vs. production crypto
 
-Rust `protocol-core` is on the production targets for two primitives: Ristretto255 scalar field (`curve25519_dalek::Scalar`, hashed-to-field via SHA-256 wide reduction) and Ed25519 moderator signatures (`ed25519_dalek::SigningKey`/`VerifyingKey`, signing the canonical statement hash). `ForumConfig.moderators` now holds `ModeratorIdentity { id, verifying_key }` and the certificate transcript binds `threshold_public_key_hash` so a cert from one threshold-key configuration cannot be replayed against another.
+Rust `protocol-core` is on the production targets for three primitives:
 
-Still dev/mock and pending replacement (`STATUS.md` tracks the work): the threshold-decryption oracle (`DevThresholdOracle` HashMap stand-in for threshold ElGamal + DLEQ), `MockZkReceipt` (stand-in for the RISC0 membership/post receipt), and the registry's flat `BTreeSet<Hash32>` membership/revocation state (Merkle roots not yet wired in).
+- **Ristretto255 scalar field** (`curve25519_dalek::Scalar`), hashed-to-field via SHA-256 wide reduction (two domain-separated halves).
+- **Ed25519 moderator signatures** (`ed25519_dalek::SigningKey`/`VerifyingKey`), signing the canonical statement hash. `ForumConfig.moderators` holds `ModeratorIdentity { id, verifying_key, share_public_key }`.
+- **Threshold ElGamal + Chaum–Pedersen DLEQ** (`protocol-core::threshold`): `ThresholdPublicKey`, per-moderator `ShareSecretKey`/`SharePublicKey`, hybrid encryption of the 64-byte `(x, y)` payload with SHA-256 KDF, partial decryptions with DLEQ proofs bound to the post's domain seed, Lagrange-at-zero aggregator. `AnonymousPostEnvelope` carries the real `Ciphertext`; `ModerationCertificate` carries `Vec<PartialDecryption>` (DLEQ-proven). `cert.revealed_share(forum)` aggregates trustlessly; `slash` no longer trusts an input share.
 
-The Python simulator stays on the dev field (`2^61 - 1`) and the dev `ModeratorKey` SHA-256-derived signature — it's the executable structural reference. It mirrors all transcript bindings the Rust core enforces (forum_id, mod_set_version, threshold_public_key_hash, K/N), so a protocol-level change must update both. Commitment *bytes* will not match between Python and Rust for the same seed because the fields differ; that's expected.
+Still dev/mock and pending replacement (`STATUS.md` tracks):
+
+- `MockZkReceipt` — stand-in for the RISC0 membership/post receipt.
+- `DealerShares::trusted` — single-trusted-party DKG. Fine for tests/demos; production needs Pedersen DKG so no party ever sees `s`.
+- Flat `BTreeSet<Hash32>` membership/revocation state — Merkle roots not yet wired in.
+
+The Python simulator stays on the dev field (`2^61 - 1`), the dev `ModeratorKey` SHA-256-derived signature, and the `ThresholdOracle` HashMap stand-in. It's the executable structural reference. Python mirrors all transcript bindings the Rust core enforces (forum_id, mod_set_version, threshold_public_key_hash, K/N), so a protocol-level change must update both. Commitment *bytes* will not match between Python and Rust for the same seed because the fields differ — that's expected.
 
 ### Cross-cutting invariants worth preserving
 

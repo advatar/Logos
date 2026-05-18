@@ -12,6 +12,7 @@ pub mod field;
 pub mod hash;
 pub mod shamir;
 pub mod state;
+pub mod threshold;
 pub mod types;
 
 pub use cert::*;
@@ -19,6 +20,11 @@ pub use field::*;
 pub use hash::*;
 pub use shamir::*;
 pub use state::*;
+pub use threshold::{
+    aggregate_decrypt, decode_share, encode_share, encrypt, partial_decrypt, verify_partial,
+    Ciphertext, DealerShares, DleqProof, PartialDecryption, Plaintext, SharePublicKey,
+    ShareSecretKey, ThresholdPublicKey, PLAINTEXT_LEN,
+};
 pub use types::*;
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
