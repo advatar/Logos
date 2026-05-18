@@ -1,0 +1,13 @@
+[package]
+name = "lp0016-basecamp-core"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+moderation-sdk = { path = "../../../crates/moderation-sdk" }
+protocol-core = { path = "../../../crates/protocol-core" }

@@ -22,16 +22,17 @@
 //! encryption nonce_seed used to produce ciphertext_hash deterministically
 //! ```
 //!
-//! Non-membership against `revocation_root` is deferred until Phase 4 picks
-//! the in-circuit encoding (sparse vs indexed Merkle tree); the current
-//! statement accepts a `non_membership_witness` slot that the verifier
-//! ignores. See `STATUS.md`.
+//! Revocation non-membership is proved with predecessor/successor witnesses
+//! against the sorted revocation Merkle tree.
 
 use protocol_core::{
     commitment_for, digest, encrypt, eval_poly, hash_to_field, merkle_verify_membership, retro_tag,
     share_commitment as share_commitment_for, ThresholdPublicKey,
 };
-use protocol_core::{Hash32, MerklePath, ProtocolError, Scalar, Share};
+use protocol_core::{
+    merkle_verify_non_membership, Hash32, MerklePath, NonMembershipProof, ProtocolError, Scalar,
+    Share,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,17 +76,17 @@ impl PublicInputs {
 pub struct PrivateInputs {
     pub coeffs: Vec<Scalar>,
     pub membership_path: MerklePath,
+    pub revocation_non_membership: NonMembershipProof,
     pub threshold_public_key: ThresholdPublicKey,
     pub encryption_nonce_seed: Vec<u8>,
-    /// Reserved for the non-membership witness once Phase 4 picks the
-    /// encoding. Verifier ignores its contents for now.
-    pub non_membership_witness: Vec<u8>,
 }
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum StatementError {
     #[error("member commitment is not in membership_root")]
     NotInMembershipTree,
+    #[error("member commitment is in revocation_root or the non-membership proof is invalid")]
+    BadRevocationNonMembership,
     #[error("share x-coordinate is not derived from public inputs")]
     BadShareX,
     #[error("share_commitment does not match the derived (x, y)")]
@@ -110,10 +111,24 @@ pub fn verify(public: &PublicInputs, private: &PrivateInputs) -> Result<(), Stat
         return Err(StatementError::BadThresholdKeyHash);
     }
     let commitment = commitment_for(&public.forum_id, public.k, &private.coeffs);
-    if !merkle_verify_membership(&public.membership_root, &commitment, &private.membership_path) {
+    if !merkle_verify_membership(
+        &public.membership_root,
+        &commitment,
+        &private.membership_path,
+    ) {
         return Err(StatementError::NotInMembershipTree);
     }
-    let x = hash_to_field("share-x", &[&public.forum_id, &public.content_id, &public.post_nonce]);
+    if !merkle_verify_non_membership(
+        &public.revocation_root,
+        &commitment,
+        &private.revocation_non_membership,
+    ) {
+        return Err(StatementError::BadRevocationNonMembership);
+    }
+    let x = hash_to_field(
+        "share-x",
+        &[&public.forum_id, &public.content_id, &public.post_nonce],
+    );
     let y = eval_poly(&private.coeffs, x);
     let derived_share_commitment = share_commitment_for(
         &public.forum_id,
@@ -124,33 +139,38 @@ pub fn verify(public: &PublicInputs, private: &PrivateInputs) -> Result<(), Stat
     if derived_share_commitment != public.share_commitment {
         return Err(StatementError::BadShareCommitment);
     }
-    let derived_retro = retro_tag(&public.forum_id, &private.coeffs, &public.content_id, &public.post_nonce);
+    let derived_retro = retro_tag(
+        &public.forum_id,
+        &private.coeffs,
+        &public.content_id,
+        &public.post_nonce,
+    );
     if derived_retro != public.retro_tag {
         return Err(StatementError::BadRetroTag);
     }
     let plaintext = protocol_core::encode_share(Share { x, y });
-    let post_id = digest("post-id", &[&public.forum_id, &public.content_id, &public.post_nonce]);
+    let post_id = digest(
+        "post-id",
+        &[&public.forum_id, &public.content_id, &public.post_nonce],
+    );
     let ciphertext = encrypt(&private.threshold_public_key, &plaintext, &post_id);
     if ciphertext.hash() != public.ciphertext_hash {
         return Err(StatementError::BadCiphertextHash);
     }
-    // Reserved: non-membership against revocation_root.
-    let _ = &public.revocation_root;
-    let _ = &private.non_membership_witness;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use protocol_core::{
-        AnonymousPostEnvelope, DealerShares, ForumConfig, MemberSecret, ModeratorIdentity,
-        ModeratorId, ModeratorSecret, RegistryState,
-    };
     use ed25519_dalek::SigningKey;
+    use protocol_core::{
+        AnonymousPostEnvelope, DealerShares, ForumConfig, MemberSecret, ModeratorId,
+        ModeratorIdentity, ModeratorSecret, RegistryState,
+    };
 
     fn forum() -> (ForumConfig, MemberSecret, RegistryState) {
-        let dealer = DealerShares::trusted(2, 3, b"r0-stmt-dealer");
+        let dealer = DealerShares::pedersen_dkg(2, 3, b"r0-stmt-dealer");
         let names = ["alice", "bob", "carol"];
         let mods: Vec<ModeratorSecret> = names
             .iter()
@@ -164,7 +184,8 @@ mod tests {
                 )
             })
             .collect();
-        let identities: Vec<ModeratorIdentity> = mods.iter().map(ModeratorSecret::identity).collect();
+        let identities: Vec<ModeratorIdentity> =
+            mods.iter().map(ModeratorSecret::identity).collect();
         let forum = ForumConfig {
             forum_id: digest("forum", &[b"r0-stmt"]),
             k: 2,
@@ -175,11 +196,17 @@ mod tests {
         };
         let member = MemberSecret::from_seed(&forum.forum_id, forum.k, b"seed");
         let mut registry = RegistryState::default();
-        registry.register(member.commitment(&forum.forum_id)).unwrap();
+        registry
+            .register(member.commitment(&forum.forum_id))
+            .unwrap();
         (forum, member, registry)
     }
 
-    fn build_inputs(forum: &ForumConfig, registry: &RegistryState, member: &MemberSecret) -> (PublicInputs, PrivateInputs, AnonymousPostEnvelope) {
+    fn build_inputs(
+        forum: &ForumConfig,
+        registry: &RegistryState,
+        member: &MemberSecret,
+    ) -> (PublicInputs, PrivateInputs, AnonymousPostEnvelope) {
         let content_id = digest("content", &[b"x"]);
         let nonce = vec![1u8, 2, 3];
         let post = AnonymousPostEnvelope::build(forum, registry, member, content_id, nonce.clone());
@@ -198,12 +225,17 @@ mod tests {
         let leaves: Vec<Hash32> = registry.registered.iter().copied().collect();
         let commitment = member.commitment(&forum.forum_id);
         let path = protocol_core::merkle_prove_membership(&leaves, &commitment).unwrap();
+        let revoked: Vec<Hash32> = registry.revoked.iter().copied().collect();
         let private = PrivateInputs {
             coeffs: member.coeffs.clone(),
             membership_path: path,
+            revocation_non_membership: protocol_core::merkle_prove_non_membership(
+                &revoked,
+                &commitment,
+            )
+            .unwrap(),
             threshold_public_key: forum.threshold_public_key,
             encryption_nonce_seed: post.post_id.to_vec(),
-            non_membership_witness: vec![],
         };
         (public, private, post)
     }
@@ -222,7 +254,10 @@ mod tests {
         let (forum, member, registry) = forum();
         let (mut public, private, _post) = build_inputs(&forum, &registry, &member);
         public.membership_root[0] ^= 0xff;
-        assert_eq!(verify(&public, &private).unwrap_err(), StatementError::NotInMembershipTree);
+        assert_eq!(
+            verify(&public, &private).unwrap_err(),
+            StatementError::NotInMembershipTree
+        );
     }
 
     #[test]
@@ -231,15 +266,33 @@ mod tests {
         let (public, mut private, _post) = build_inputs(&forum, &registry, &member);
         private.coeffs[0] += Scalar::ONE;
         let err = verify(&public, &private).unwrap_err();
-        assert!(matches!(err, StatementError::NotInMembershipTree | StatementError::BadShareCommitment));
+        assert!(matches!(
+            err,
+            StatementError::NotInMembershipTree | StatementError::BadShareCommitment
+        ));
     }
 
     #[test]
     fn verify_rejects_swapped_threshold_key() {
         let (forum, member, registry) = forum();
-        let other = DealerShares::trusted(2, 3, b"other-dealer");
+        let other = DealerShares::pedersen_dkg(2, 3, b"other-dealer");
         let (public, mut private, _post) = build_inputs(&forum, &registry, &member);
         private.threshold_public_key = other.threshold_public_key;
-        assert_eq!(verify(&public, &private).unwrap_err(), StatementError::BadThresholdKeyHash);
+        assert_eq!(
+            verify(&public, &private).unwrap_err(),
+            StatementError::BadThresholdKeyHash
+        );
+    }
+
+    #[test]
+    fn verify_rejects_revoked_member_root() {
+        let (forum, member, registry) = forum();
+        let (mut public, private, _post) = build_inputs(&forum, &registry, &member);
+        let commitment = member.commitment(&forum.forum_id);
+        public.revocation_root = protocol_core::root_from_set([commitment]);
+        assert_eq!(
+            verify(&public, &private).unwrap_err(),
+            StatementError::BadRevocationNonMembership
+        );
     }
 }

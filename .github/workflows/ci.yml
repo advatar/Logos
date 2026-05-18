@@ -28,6 +28,30 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.82.0
       - run: cargo build --workspace
       - run: cargo test --workspace
+      - run: ./scripts/demo_e2e.sh
+      - run: ./scripts/measure_cu.sh | tee /tmp/lp0016-cu.json
+
+  risc0-feature:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo check --manifest-path zk/membership-host/Cargo.toml --features risc0
+
+  basecamp-static:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
+      - run: test -f app/basecamp-forum/Main.qml
+      - run: grep -q "Submit slash" app/basecamp-forum/Main.qml
+      - run: grep -q "post after slash rejected" app/basecamp-forum/Main.qml
 
   lean:
     runs-on: ubuntu-latest

@@ -138,13 +138,15 @@ impl<'de> Deserialize<'de> for Scalar {
             let bytes: [u8; 32] = raw
                 .try_into()
                 .map_err(|_| D::Error::custom("scalar must be 32 bytes"))?;
-            Self::from_canonical_bytes(bytes).ok_or_else(|| D::Error::custom("non-canonical scalar"))
+            Self::from_canonical_bytes(bytes)
+                .ok_or_else(|| D::Error::custom("non-canonical scalar"))
         } else {
             let raw = <Vec<u8>>::deserialize(de)?;
             let bytes: [u8; 32] = raw
                 .try_into()
                 .map_err(|_| D::Error::custom("scalar must be 32 bytes"))?;
-            Self::from_canonical_bytes(bytes).ok_or_else(|| D::Error::custom("non-canonical scalar"))
+            Self::from_canonical_bytes(bytes)
+                .ok_or_else(|| D::Error::custom("non-canonical scalar"))
         }
     }
 }

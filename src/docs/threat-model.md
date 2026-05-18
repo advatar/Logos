@@ -2,7 +2,7 @@
 
 ## In scope
 
-- malicious members posting after revocation — blocked by the revocation-root binding in `proof_public_inputs_hash` (Phase 4 RISC0 guest enforces non-membership);
+- malicious members posting after revocation — blocked by the revocation-root binding in `proof_public_inputs_hash` and the RISC0 statement's revocation non-membership proof;
 - a coalition of fewer than `N` moderators issuing a certificate — `verify_certificate` rejects under both the vote count and the DLEQ partial-decryption count;
 - a coalition of `N` moderators forging a `revealed_share` for an unrelated post — blocked: the slash verifier ignores any aggregator-supplied share and recomputes via `aggregate_decrypt`, verifying each partial's DLEQ proof against the moderator's committed `share_public_key`;
 - slash submitters combining unrelated certificates — `slash` rejects bundles with duplicate Shamir x-coordinates and rejects bundles that interpolate to a commitment not present in the registry;
@@ -10,7 +10,7 @@
 - cross-mod-set-version replay — `mod_set_version` is in the certificate statement;
 - cross-threshold-key replay — `threshold_public_key_hash` is in the certificate statement and the post public-inputs hash;
 - replaying a partial decryption from one post against another — DLEQ proofs bind the per-post domain seed `digest("partial-dleq-domain", forum_id, post_id)`;
-- storage / messaging outages — handled by retry queues at the SDK boundary (planned, see `STATUS.md → Phase 6`).
+- storage / messaging outages — handled by retry queues at the SDK boundary.
 
 ## Out of scope
 
@@ -19,7 +19,7 @@
 - endpoint compromise (a moderator's signing key or share secret leaking from their device);
 - side channels during local proof generation;
 - denial of service against Logos network services;
-- a faulty distributed key generation — today `DealerShares::trusted` is a single-trusted-party stand-in; Pedersen DKG is a Phase 2 follow-up.
+- network-level DKG aborts or equivocation recovery; the repo now has an auditable Pedersen-style DKG transcript API, but production still needs transport, complaints, and recovery around that transcript.
 
 ## Security assumptions
 

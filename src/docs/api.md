@@ -32,7 +32,12 @@ pub struct AnonymousPostEnvelope {
     pub retro_tag: Hash32,
     pub membership_root: Hash32,
     pub revocation_root: Hash32,
-    pub zk_receipt: MockZkReceipt,                  // → ZkReceipt::Risc0 once Phase 4 ships
+    pub zk_receipt: ZkReceipt,                      // Mock locally, Risc0 in production
+}
+
+pub enum ZkReceipt {
+    Mock(MockZkReceipt),
+    Risc0 { public_inputs_hash, image_id, journal, receipt_bytes },
 }
 
 pub struct ModerationCertificate {
@@ -66,9 +71,13 @@ impl ModeratorSecret {
 
 ```rust
 fn new(forum: ForumConfig, store: S) -> Result<Self>;
+fn with_retry_queue(forum: ForumConfig, store: S, retry_queue: Q) -> Result<Self>;
 fn register_member(&mut self, member: &MemberSecret) -> Result<Hash32>;
 fn build_post(&mut self, member, content_id, nonce) -> Result<AnonymousPostEnvelope>;
 fn persist_post(&mut self, post: &AnonymousPostEnvelope) -> Result<String>;
+fn persist_vote(&mut self, forum_id: &Hash32, vote: &ModerationVote) -> Result<String>;
+fn persist_certificate(&mut self, cert: &ModerationCertificate) -> Result<String>;
+fn persist_slash_bundle(&mut self, forum_id: &Hash32, certs: &[ModerationCertificate]) -> Result<String>;
 fn create_moderation_vote(&self, mod: &ModeratorSecret, post, reason_hash) -> Result<ModerationVote>;
 fn aggregate_certificate(
     &self,
@@ -90,15 +99,23 @@ pub trait OffchainStore {
 }
 ```
 
-In-memory implementation: `MemoryStore`. Production must implement this trait against Logos Storage + Delivery, with a retry queue around `put` and the slash submission path (tracked in `STATUS.md → Phase 6`).
+In-memory implementation: `MemoryStore`. Production must implement this trait against Logos Storage + Delivery. `RetryQueue` wraps failed `put` operations and slash submission records:
 
-Namespacing (current + planned):
+```rust
+pub trait RetryQueue {
+    fn push(&mut self, task: RetryTask) -> Result<()>;
+    fn pop(&mut self) -> Option<RetryTask>;
+    fn len(&self) -> usize;
+}
+```
+
+Namespacing:
 
 ```text
-post/<forum_id_hex>/<id>        // implemented
-cert/<forum_id_hex>/<id>        // planned
-vote/<forum_id_hex>/<post>/<m>  // planned
-slash/<forum_id_hex>/<id>       // planned
+post/<forum_id_hex>/<id>
+cert/<forum_id_hex>/<id>
+vote/<forum_id_hex>/<id>
+slash/<forum_id_hex>/<id>
 ```
 
 ## RISC0 statement (`risc0-statement`)
@@ -108,8 +125,8 @@ pub struct PublicInputs { forum_id, k, membership_root, revocation_root,
     content_id, post_nonce, threshold_public_key_hash, ciphertext_hash,
     retro_tag, share_commitment }
 
-pub struct PrivateInputs { coeffs, membership_path, threshold_public_key,
-    encryption_nonce_seed, non_membership_witness }
+pub struct PrivateInputs { coeffs, membership_path, revocation_non_membership,
+    threshold_public_key, encryption_nonce_seed }
 
 pub fn verify(public: &PublicInputs, private: &PrivateInputs) -> Result<(), StatementError>;
 ```

@@ -117,9 +117,9 @@ Every signed or proven object is domain-separated by `forum_id`, and where appli
 
 ## Revocation behaviour
 
-After slash, the commitment is added to `revocation_root`. A later post envelope carries the *new* `revocation_root` in its public-inputs hash; the RISC0 guest's statement (`crates/risc0-statement`) is structured so the production verifier can require non-membership against `revocation_root`. The non-membership encoding (sparse vs indexed Merkle tree) is currently a reserved slot; choice is deferred until in-circuit benchmarking, see `STATUS.md → Phase 4`.
+After slash, the commitment is added to `revocation_root`. A later post envelope carries the *new* `revocation_root` in its public-inputs hash; the RISC0 guest's statement (`crates/risc0-statement`) verifies non-membership against `revocation_root` using predecessor/successor Merkle proofs and sorted-index adjacency checks.
 
 ## Development model in this repository
 
-- The **Rust** core (`protocol-core`, `moderation-sdk`, `lp0016-registry`, `risc0-statement`) implements the protocol with production crypto: Ristretto255 scalar field, Ed25519 signatures, threshold ElGamal + Chaum–Pedersen DLEQ, Merkle roots. The remaining dev placeholder is `MockZkReceipt` inside `protocol-core` (the structural plumbing for swapping in a real `Risc0` receipt is ready) and `DealerShares::trusted` (a single-trusted-party stand-in for Pedersen DKG).
+- The **Rust** core (`protocol-core`, `moderation-sdk`, `lp0016-registry`, `risc0-statement`) implements the protocol with production crypto: Ristretto255 scalar field, Ed25519 signatures, threshold ElGamal + Chaum–Pedersen DLEQ, Merkle roots, revocation non-membership proofs, a `ZkReceipt::{Mock,Risc0}` envelope, and a Pedersen-style DKG transcript API. Local tests use mock receipts; full RISC0 proving requires the external RISC0 toolchain.
 - The **Python** simulator (`scripts/lp0016_sim.py`) keeps the same protocol state-machine shape but stays on the small dev field `2^61 - 1` and the SHA-256-derived dev moderator signature; SPEC.md keeps it dependency-free. It is the executable structural reference; commitment bytes will not match Rust because the fields differ.

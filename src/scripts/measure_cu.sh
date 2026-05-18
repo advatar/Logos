@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cat <<'MSG'
-CU measurement placeholder.
 
-Production steps:
-  1. logos-scaffold localnet start
-  2. logos-scaffold deploy lp0016_registry
-  3. run register_member and capture sequencer CU output
-  4. run slash_member with K certificates and capture CU output
-  5. write results to docs/performance.md
-MSG
+LOGOS_SCAFFOLD="${LOGOS_SCAFFOLD:-logos-scaffold}"
+if ! command -v "$LOGOS_SCAFFOLD" >/dev/null 2>&1; then
+  if [[ -x "$HOME/.cargo/bin/logos-scaffold" ]]; then
+    LOGOS_SCAFFOLD="$HOME/.cargo/bin/logos-scaffold"
+  fi
+fi
+
+if ! command -v "$LOGOS_SCAFFOLD" >/dev/null 2>&1; then
+  cat <<'JSON'
+{"status":"blocked","measurement":"lez_compute_units","reason":"logos-scaffold is not installed","required_commands":["logos-scaffold localnet start","logos-scaffold deploy lp0016_registry","logos-scaffold invoke register_member","logos-scaffold invoke slash_member"]}
+JSON
+  exit 0
+fi
+
+cat <<'JSON'
+{"status":"blocked","measurement":"lez_compute_units","reason":"LEZ sequencer/wallet binaries are unavailable; run logos-scaffold setup after installing the logos-blockchain-circuits release","required_artifacts":[".scaffold/cache/repos/lez/<pin>/target/release/sequencer_service",".scaffold/cache/repos/lez/<pin>/target/release/wallet","registry/program_ids/devnet.txt","registry/program_ids/testnet.txt","docs/performance.md CU table"]}
+JSON

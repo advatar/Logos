@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{digest, encrypt, encode_share, Ciphertext, Hash32, RegistryState, Scalar, SharePublicKey, ThresholdPublicKey};
+use crate::{
+    digest, encode_share, encrypt, Ciphertext, Hash32, RegistryState, Scalar, SharePublicKey,
+    ThresholdPublicKey,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ForumConfig {
@@ -54,7 +57,10 @@ impl MemberSecret {
         let mut coeffs = Vec::with_capacity(k as usize);
         for i in 0..k {
             let idx = [i];
-            coeffs.push(crate::hash_to_field("member-coeff", &[forum_id, seed, &idx]));
+            coeffs.push(crate::hash_to_field(
+                "member-coeff",
+                &[forum_id, seed, &idx],
+            ));
         }
         Self { coeffs }
     }
@@ -64,14 +70,71 @@ impl MemberSecret {
     }
 }
 
-/// Development-only ZK receipt stand-in. Replaced by a RISC0 receipt once the
-/// `risc0-verify` feature is enabled (see `STATUS.md → Phase 4`).
+/// Development-only ZK receipt stand-in. It reveals the commitment so the
+/// local state-machine tests can check registry membership without a prover.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MockZkReceipt {
     pub public_inputs_hash: Hash32,
     /// Development-only; real receipts do not reveal the commitment.
     pub hidden_commitment_for_local_model: Hash32,
     pub valid: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ZkReceipt {
+    Mock(MockZkReceipt),
+    Risc0 {
+        public_inputs_hash: Hash32,
+        image_id: [u8; 32],
+        journal: Hash32,
+        receipt_bytes: Vec<u8>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerifiedZkReceipt {
+    Mock {
+        hidden_commitment_for_local_model: Hash32,
+    },
+    Risc0,
+}
+
+impl ZkReceipt {
+    pub fn mock(public_inputs_hash: Hash32, hidden_commitment_for_local_model: Hash32) -> Self {
+        Self::Mock(MockZkReceipt {
+            public_inputs_hash,
+            hidden_commitment_for_local_model,
+            valid: true,
+        })
+    }
+
+    pub fn public_inputs_hash(&self) -> Hash32 {
+        match self {
+            ZkReceipt::Mock(receipt) => receipt.public_inputs_hash,
+            ZkReceipt::Risc0 {
+                public_inputs_hash, ..
+            } => *public_inputs_hash,
+        }
+    }
+
+    pub fn verify_public_inputs(
+        &self,
+        expected_public_inputs_hash: &Hash32,
+    ) -> crate::Result<VerifiedZkReceipt> {
+        if &self.public_inputs_hash() != expected_public_inputs_hash {
+            return Err(crate::ProtocolError::InvalidCertificate);
+        }
+        match self {
+            ZkReceipt::Mock(receipt) if receipt.valid => Ok(VerifiedZkReceipt::Mock {
+                hidden_commitment_for_local_model: receipt.hidden_commitment_for_local_model,
+            }),
+            ZkReceipt::Risc0 { journal, .. } if journal == expected_public_inputs_hash => {
+                Ok(VerifiedZkReceipt::Risc0)
+            }
+            _ => Err(crate::ProtocolError::InvalidCertificate),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -87,15 +150,15 @@ pub struct AnonymousPostEnvelope {
     pub retro_tag: Hash32,
     pub membership_root: Hash32,
     pub revocation_root: Hash32,
-    pub zk_receipt: MockZkReceipt,
+    pub zk_receipt: ZkReceipt,
 }
 
 impl AnonymousPostEnvelope {
     /// Build a post envelope with a real threshold-ElGamal ciphertext under
     /// the forum's threshold public key, binding the registry's membership
-    /// and revocation Merkle roots into the public-inputs hash. The ZK
-    /// receipt is still a `MockZkReceipt`; the RISC0 path will replace that
-    /// without changing the rest of the envelope.
+    /// and revocation Merkle roots into the public-inputs hash. Local demos use
+    /// a `ZkReceipt::Mock`; production hosts can replace it with
+    /// `ZkReceipt::Risc0` without changing the rest of the envelope.
     pub fn build(
         forum: &ForumConfig,
         registry: &RegistryState,
@@ -141,11 +204,7 @@ impl AnonymousPostEnvelope {
             retro_tag,
             membership_root,
             revocation_root,
-            zk_receipt: MockZkReceipt {
-                public_inputs_hash,
-                hidden_commitment_for_local_model: commitment,
-                valid: true,
-            },
+            zk_receipt: ZkReceipt::mock(public_inputs_hash, commitment),
         }
     }
 

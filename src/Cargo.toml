@@ -5,6 +5,7 @@ members = [
   "crates/registry-sim",
   "crates/risc0-statement",
   "crates/slash-verifier",
+  "app/basecamp-forum/core-module",
   "registry/lp0016-registry",
 ]
 resolver = "2"

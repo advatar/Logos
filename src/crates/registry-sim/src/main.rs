@@ -1,14 +1,19 @@
 use ed25519_dalek::SigningKey;
 use moderation_sdk::{ForumSdk, MemoryStore};
 use protocol_core::*;
+use slash_verifier::{RegistrySnapshot, SlashBundleFile};
 
 fn build_moderator(name: &str, share: ShareSecretKey) -> ModeratorSecret {
     let seed: [u8; 32] = digest("mod-sign-seed", &[name.as_bytes()]);
-    ModeratorSecret::new(ModeratorId(name.to_string()), SigningKey::from_bytes(&seed), share)
+    ModeratorSecret::new(
+        ModeratorId(name.to_string()),
+        SigningKey::from_bytes(&seed),
+        share,
+    )
 }
 
 fn main() -> anyhow::Result<()> {
-    let dealer = DealerShares::trusted(2, 3, b"registry-sim-dealer");
+    let dealer = DealerShares::pedersen_dkg(2, 3, b"registry-sim-dealer");
     let names = ["alice", "bob", "carol"];
     let mods: Vec<ModeratorSecret> = names
         .iter()
@@ -38,11 +43,36 @@ fn main() -> anyhow::Result<()> {
             sdk.create_moderation_vote(&mods[0], &post, reason)?,
             sdk.create_moderation_vote(&mods[1], &post, reason)?,
         ];
-        let partials = vec![mods[0].partial_decrypt(&post), mods[1].partial_decrypt(&post)];
+        let partials = vec![
+            mods[0].partial_decrypt(&post),
+            mods[1].partial_decrypt(&post),
+        ];
         certs.push(sdk.aggregate_certificate(&post, reason, votes, partials)?);
     }
 
+    if let Ok(dir) = std::env::var("LP0016_SIM_JSON_DIR") {
+        std::fs::create_dir_all(&dir)?;
+        let snapshot = RegistrySnapshot {
+            forum: sdk.forum.clone(),
+            registry: sdk.registry.clone(),
+        };
+        let bundle = SlashBundleFile {
+            certificates: certs.clone(),
+        };
+        std::fs::write(
+            std::path::Path::new(&dir).join("registry.json"),
+            serde_json::to_vec_pretty(&snapshot)?,
+        )?;
+        std::fs::write(
+            std::path::Path::new(&dir).join("bundle.json"),
+            serde_json::to_vec_pretty(&bundle)?,
+        )?;
+    }
+
     let slash = sdk.submit_slash(&certs)?;
-    println!("slash reconstructed and revoked {}…", hex8(&slash.commitment));
+    println!(
+        "slash reconstructed and revoked {}…",
+        hex8(&slash.commitment)
+    );
     Ok(())
 }

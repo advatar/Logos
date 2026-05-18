@@ -1,7 +1,9 @@
 //! Library half of the slash-verifier CLI. The CLI itself is in `main.rs`.
 
 use anyhow::{anyhow, Result};
-use protocol_core::{slash, ForumConfig, Hash32, ModerationCertificate, RegistryState, SlashResult};
+use protocol_core::{
+    slash, ForumConfig, Hash32, ModerationCertificate, RegistryState, SlashResult,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,7 +51,7 @@ mod tests {
     };
 
     fn build_forum_and_mods() -> (ForumConfig, Vec<ModeratorSecret>) {
-        let dealer = DealerShares::trusted(2, 3, b"slash-verifier-dealer");
+        let dealer = DealerShares::pedersen_dkg(2, 3, b"slash-verifier-dealer");
         let names = ["alice", "bob", "carol"];
         let mods: Vec<ModeratorSecret> = names
             .iter()
@@ -78,12 +80,15 @@ mod tests {
         let (forum, mods) = build_forum_and_mods();
         let member = MemberSecret::from_seed(&forum.forum_id, forum.k, b"seed");
         let mut registry = RegistryState::default();
-        registry.register(member.commitment(&forum.forum_id)).unwrap();
+        registry
+            .register(member.commitment(&forum.forum_id))
+            .unwrap();
 
         let mut certs = Vec::new();
         for i in 0..2u8 {
             let content_id = digest("content", &[&[i]]);
-            let post = AnonymousPostEnvelope::build(&forum, &registry, &member, content_id, vec![i]);
+            let post =
+                AnonymousPostEnvelope::build(&forum, &registry, &member, content_id, vec![i]);
             let reason = digest("reason", &[b"rule"]);
             let st = statement_for(
                 &forum,
@@ -97,7 +102,10 @@ mod tests {
                 create_vote(&forum, &mods[0], &st).unwrap(),
                 create_vote(&forum, &mods[1], &st).unwrap(),
             ];
-            let partials = vec![mods[0].partial_decrypt(&post), mods[1].partial_decrypt(&post)];
+            let partials = vec![
+                mods[0].partial_decrypt(&post),
+                mods[1].partial_decrypt(&post),
+            ];
             certs.push(ModerationCertificate {
                 statement: st,
                 votes,
@@ -107,7 +115,9 @@ mod tests {
         }
         (
             RegistrySnapshot { forum, registry },
-            SlashBundleFile { certificates: certs },
+            SlashBundleFile {
+                certificates: certs,
+            },
         )
     }
 

@@ -35,6 +35,7 @@ The current statement (`crates/risc0-statement::verify`) costs:
 
 - 1 SHA-256 for `member_commitment`;
 - O(log N) SHA-256 calls for the membership Merkle path (depth depends on registered set size);
+- O(log R) SHA-256 calls for revocation non-membership, where `R` is the revoked set size;
 - 1 SHA-256 + 1 polynomial evaluation of degree `< K` for the Shamir share;
 - 1 SHA-256 for `share_commitment`;
 - 1 SHA-256 for `retro_tag`;
@@ -46,3 +47,5 @@ The dominant cost is expected to be the Ristretto255 point multiplications insid
 ## Development-simulator numbers
 
 `cargo run -p registry-sim` and `python3 scripts/demo_e2e.py` are correctness oracles, not perf metrics. Their wall-clock numbers do not reflect production proving costs.
+
+`scripts/measure_cu.sh` emits structured JSON. Until `logos-scaffold` and a pinned LEZ localnet/devnet are available, the script reports `{"status":"blocked","measurement":"lez_compute_units",...}` so CI can distinguish missing infrastructure from a broken script.

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repo orientation
 
-This is the LP-0016 anonymous forum starter — a forum-agnostic moderation library plus a Basecamp app that does off-chain posting/moderation with on-chain slash only at revocation time. The "working" code today is the local protocol simulator (Python) and the pure Rust state-machine model; LEZ, SPEL, RISC0, and Basecamp directories are deliberate boundary stubs.
+This is the LP-0016 anonymous forum starter — a forum-agnostic moderation library plus a Basecamp app that does off-chain posting/moderation with on-chain slash only at revocation time. The working code includes the local protocol simulator (Python), the Rust protocol implementation, the registry simulator, slash verifier, Lean theorem surface, feature-gated RISC0 host/guest crates, and a Basecamp flow harness.
 
 All source lives under `src/` — almost every build/test command runs from there, not the repo root. The CI workflow at `.github/workflows/ci.yml` uses `working-directory: src` for every job.
 
@@ -12,7 +12,7 @@ Authoritative docs (do not duplicate when answering questions — read these ins
 
 - `src/SPEC.md` — concrete implementation decisions: toolchain pins, production vs. dev crypto choices, canonical transcript serialization, LEZ/SPEL/Basecamp targets, RISC0 circuit statement, acceptance criteria, threat model.
 - `REPO.md` — narrative description of the original starter delivery and the prize requirements.
-- `STATUS.md` — current active task list, verification results, and a placeholder inventory describing which components are still stubs vs. real implementations.
+- `STATUS.md` — current active task list, verification results, and external-runtime blockers.
 - `AGENTS.md` — working rules (see "Working rules" below).
 - `src/docs/protocol.md`, `api.md`, `threat-model.md`, `performance.md` — protocol-level reference.
 
@@ -62,15 +62,15 @@ The protocol implements an **anonymous forum with K-strike slashing**: each memb
    - `registry-sim` — local binary that simulates the LEZ registry program for tests/demos.
    - `slash-verifier` — CLI shell for slash-bundle verification.
 
-3. **`src/lean/AnonymousForum/`** — Lean 4 proofs of the protocol state machine (`Basic.lean` definitions, `Invariants.lean` no-`sorry` invariant proofs, `ShamirTargets.lean` next-target theorems). Lean covers the formal protocol/state-machine layer only — cryptographic primitives (hashes, signatures, threshold ElGamal, RISC0 receipts) are stated as assumptions, not proved.
+3. **`src/lean/AnonymousForum/`** — Lean 4 proofs and proof contracts for the protocol state machine (`Basic.lean`, `Invariants.lean`, `Shamir.lean`, `Slash.lean`, `ShamirTargets.lean`). Lean covers the formal protocol/state-machine layer only — cryptographic primitives (hashes, signatures, threshold ElGamal, RISC0 receipts) are stated as assumptions, not proved.
 
-### Boundary stubs (intentional placeholders — see `STATUS.md` placeholder inventory before touching)
+### External-runtime boundaries
 
-- `src/registry/lez-program-stub/` — LEZ/SPEL registry boundary. Will be replaced by a SPEL-annotated LEZ program generated via `logos-scaffold build idl`.
-- `src/zk/membership-guest/` and `src/zk/membership-host/` — RISC0 guest/host placeholders. Production circuit statement (public/private inputs, checks, perf plan) is in `src/SPEC.md §5`.
-- `src/app/basecamp-forum/` — minimal Basecamp QML placeholder. Must only call `moderation-sdk`, never `protocol-core` directly.
-- `src/scripts/measure_cu.sh` — compute-unit measurement, pending deployed localnet/testnet.
-- `src/scaffold.toml` — placeholder; real LEZ/SPEL/Basecamp commits get pinned after `logos-scaffold setup`.
+- `src/registry/lp0016-registry/` — LEZ/SPEL registry crate with account/instruction types and hand-written IDL. Doc-style markers remain until `logos-scaffold`/SPEL macros are installed and pinned.
+- `src/zk/membership-guest/` and `src/zk/membership-host/` — feature-gated RISC0 guest/host. Default workspace builds skip the external proving toolchain; `--features risc0` exercises it when installed.
+- `src/app/basecamp-forum/` — Basecamp QML flow harness plus `core-module/` Rust C ABI bridge through `moderation-sdk`.
+- `src/scripts/measure_cu.sh` — structured CU measurement script. It reports a JSON blocker until `logos-scaffold` and LEZ localnet/devnet are available.
+- `src/scaffold.toml` — scaffold config with the pinned LEZ commit; full localnet setup still needs the Logos circuits release.
 
 ### Dev vs. production crypto
 
@@ -80,14 +80,14 @@ Rust `protocol-core` is on the production targets for three primitives:
 - **Ed25519 moderator signatures** (`ed25519_dalek::SigningKey`/`VerifyingKey`), signing the canonical statement hash. `ForumConfig.moderators` holds `ModeratorIdentity { id, verifying_key, share_public_key }`.
 - **Threshold ElGamal + Chaum–Pedersen DLEQ** (`protocol-core::threshold`): `ThresholdPublicKey`, per-moderator `ShareSecretKey`/`SharePublicKey`, hybrid encryption of the 64-byte `(x, y)` payload with SHA-256 KDF, partial decryptions with DLEQ proofs bound to the post's domain seed, Lagrange-at-zero aggregator. `AnonymousPostEnvelope` carries the real `Ciphertext`; `ModerationCertificate` carries `Vec<PartialDecryption>` (DLEQ-proven). `cert.revealed_share(forum)` aggregates trustlessly; `slash` no longer trusts an input share.
 
-Registry state binds **Merkle roots** for membership and revocation. `RegistryState::membership_root()` and `revocation_root()` derive from the current sets via `protocol-core::merkle` (sorted, de-duplicating, leaf/node domain-separated). `AnonymousPostEnvelope::build` takes the registry and binds both roots into the public-inputs hash. Non-membership proofs against the revocation root are deferred until the RISC0 guest fixes the in-circuit encoding.
+Registry state binds **Merkle roots** for membership and revocation. `RegistryState::membership_root()` and `revocation_root()` derive from the current sets via `protocol-core::merkle` (sorted, de-duplicating, leaf/node domain-separated). `AnonymousPostEnvelope::build` takes the registry and binds both roots into the public-inputs hash. Revocation non-membership uses predecessor/successor proofs with sorted-index adjacency checks.
 
 The RISC0 statement is real and CPU-tested: `crates/risc0-statement` holds `PublicInputs`, `PrivateInputs`, and `verify(public, private)`. Same code links into the guest at `src/zk/membership-guest` (gated by the `risc0` cargo feature; default build skips it). The host at `src/zk/membership-host` calls `default_prover().prove` and verifies receipts against the image id. Both guest and host live outside the workspace so the default `cargo build --workspace` doesn't drag in `cargo-risczero`.
 
-Still dev/mock and pending replacement (`STATUS.md` tracks):
+Still external-toolchain dependent (`STATUS.md` tracks):
 
-- `MockZkReceipt` inside `protocol-core` — the post envelope still embeds a development-only commitment hint. The structural plumbing for a real `ZkReceipt::Risc0 { receipt_bytes, image_id }` variant is ready; swapping it in is Phase 4 follow-up.
-- `DealerShares::trusted` — single-trusted-party DKG. Fine for tests/demos; production needs Pedersen DKG so no party ever sees `s`.
+- `ZkReceipt::Mock` is used by local demos; `ZkReceipt::Risc0 { receipt_bytes, image_id, journal }` is available and full verification depends on the RISC0 host/toolchain.
+- `DealerShares::pedersen_dkg` simulates a Pedersen-style DKG transcript in process. Production still needs network transport, complaints, and recovery around the transcript.
 
 The Python simulator stays on the dev field (`2^61 - 1`), the dev `ModeratorKey` SHA-256-derived signature, and the `ThresholdOracle` HashMap stand-in. It's the executable structural reference. Python mirrors all transcript bindings the Rust core enforces (forum_id, mod_set_version, threshold_public_key_hash, K/N), so a protocol-level change must update both. Commitment *bytes* will not match between Python and Rust for the same seed because the fields differ — that's expected.
 

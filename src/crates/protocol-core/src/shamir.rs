@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{digest, hash_to_field, ProtocolError, Result, Hash32, Scalar};
+use crate::{digest, hash_to_field, Hash32, ProtocolError, Result, Scalar};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Share {
@@ -77,14 +77,30 @@ pub fn share_for(forum_id: &Hash32, coeffs: &[Scalar], content_id: &Hash32, nonc
     Share { x, y }
 }
 
-pub fn share_commitment(forum_id: &Hash32, content_id: &Hash32, nonce: &[u8], share: Share) -> Hash32 {
+pub fn share_commitment(
+    forum_id: &Hash32,
+    content_id: &Hash32,
+    nonce: &[u8],
+    share: Share,
+) -> Hash32 {
     digest(
         "share",
-        &[forum_id, content_id, nonce, &share.x.to_bytes(), &share.y.to_bytes()],
+        &[
+            forum_id,
+            content_id,
+            nonce,
+            &share.x.to_bytes(),
+            &share.y.to_bytes(),
+        ],
     )
 }
 
-pub fn retro_tag(forum_id: &Hash32, coeffs: &[Scalar], content_id: &Hash32, nonce: &[u8]) -> Hash32 {
+pub fn retro_tag(
+    forum_id: &Hash32,
+    coeffs: &[Scalar],
+    content_id: &Hash32,
+    nonce: &[u8],
+) -> Hash32 {
     let coeff_bytes = coeffs_to_bytes(coeffs);
     digest("retro", &[forum_id, &coeff_bytes, content_id, nonce])
 }
@@ -95,11 +111,24 @@ mod tests {
 
     #[test]
     fn interpolation_recovers_coefficients() {
-        let coeffs = vec![Scalar::from_u64(5), Scalar::from_u64(7), Scalar::from_u64(11)];
+        let coeffs = vec![
+            Scalar::from_u64(5),
+            Scalar::from_u64(7),
+            Scalar::from_u64(11),
+        ];
         let shares = [
-            Share { x: Scalar::from_u64(1), y: eval_poly(&coeffs, Scalar::from_u64(1)) },
-            Share { x: Scalar::from_u64(2), y: eval_poly(&coeffs, Scalar::from_u64(2)) },
-            Share { x: Scalar::from_u64(3), y: eval_poly(&coeffs, Scalar::from_u64(3)) },
+            Share {
+                x: Scalar::from_u64(1),
+                y: eval_poly(&coeffs, Scalar::from_u64(1)),
+            },
+            Share {
+                x: Scalar::from_u64(2),
+                y: eval_poly(&coeffs, Scalar::from_u64(2)),
+            },
+            Share {
+                x: Scalar::from_u64(3),
+                y: eval_poly(&coeffs, Scalar::from_u64(3)),
+            },
         ];
         assert_eq!(interpolate_coeffs(&shares).unwrap(), coeffs);
     }
@@ -107,9 +136,18 @@ mod tests {
     #[test]
     fn duplicate_x_is_rejected() {
         let shares = [
-            Share { x: Scalar::from_u64(1), y: Scalar::from_u64(10) },
-            Share { x: Scalar::from_u64(1), y: Scalar::from_u64(20) },
+            Share {
+                x: Scalar::from_u64(1),
+                y: Scalar::from_u64(10),
+            },
+            Share {
+                x: Scalar::from_u64(1),
+                y: Scalar::from_u64(20),
+            },
         ];
-        assert_eq!(interpolate_coeffs(&shares).unwrap_err(), ProtocolError::DuplicateShareX);
+        assert_eq!(
+            interpolate_coeffs(&shares).unwrap_err(),
+            ProtocolError::DuplicateShareX
+        );
     }
 }

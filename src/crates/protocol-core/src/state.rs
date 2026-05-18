@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     commitment_for, interpolate_coeffs, verify_certificate, AnonymousPostEnvelope, ForumConfig,
-    Hash32, ModerationCertificate, ProtocolError, Result, Scalar,
+    Hash32, ModerationCertificate, ProtocolError, Result, Scalar, VerifiedZkReceipt,
 };
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -48,18 +48,34 @@ impl RegistryState {
     }
 }
 
-pub fn verify_post(registry: &RegistryState, forum: &ForumConfig, post: &AnonymousPostEnvelope) -> Result<()> {
+pub fn verify_post(
+    registry: &RegistryState,
+    forum: &ForumConfig,
+    post: &AnonymousPostEnvelope,
+) -> Result<()> {
     if post.forum_id != forum.forum_id {
         return Err(ProtocolError::InvalidCertificate);
     }
-    if post.zk_receipt.public_inputs_hash != post.proof_public_inputs_hash || !post.zk_receipt.valid {
+    if post.membership_root != registry.membership_root()
+        || post.revocation_root != registry.revocation_root()
+    {
         return Err(ProtocolError::InvalidCertificate);
     }
     if post.ciphertext.hash() != post.ciphertext_hash {
         return Err(ProtocolError::InvalidCertificate);
     }
-    if !registry.is_active(&post.zk_receipt.hidden_commitment_for_local_model) {
-        return Err(ProtocolError::CommitmentNotActive);
+    match post
+        .zk_receipt
+        .verify_public_inputs(&post.proof_public_inputs_hash)?
+    {
+        VerifiedZkReceipt::Mock {
+            hidden_commitment_for_local_model,
+        } => {
+            if !registry.is_active(&hidden_commitment_for_local_model) {
+                return Err(ProtocolError::CommitmentNotActive);
+            }
+        }
+        VerifiedZkReceipt::Risc0 => {}
     }
     Ok(())
 }
@@ -70,7 +86,11 @@ pub struct SlashResult {
     pub reconstructed_coeffs: Vec<Scalar>,
 }
 
-pub fn slash(registry: &mut RegistryState, forum: &ForumConfig, certificates: &[ModerationCertificate]) -> Result<SlashResult> {
+pub fn slash(
+    registry: &mut RegistryState,
+    forum: &ForumConfig,
+    certificates: &[ModerationCertificate],
+) -> Result<SlashResult> {
     if certificates.len() != forum.k as usize {
         return Err(ProtocolError::WrongSlashCertificateCount);
     }
@@ -85,7 +105,10 @@ pub fn slash(registry: &mut RegistryState, forum: &ForumConfig, certificates: &[
         return Err(ProtocolError::CommitmentNotActive);
     }
     registry.revoke(commitment)?;
-    Ok(SlashResult { commitment, reconstructed_coeffs: coeffs })
+    Ok(SlashResult {
+        commitment,
+        reconstructed_coeffs: coeffs,
+    })
 }
 
 #[cfg(test)]
@@ -103,7 +126,7 @@ mod tests {
     }
 
     fn test_setup() -> TestSetup {
-        let dealer = DealerShares::trusted(2, 3, b"forum-seed");
+        let dealer = DealerShares::pedersen_dkg(2, 3, b"forum-seed");
         let names = ["alice", "bob", "carol"];
         let mods: Vec<ModeratorSecret> = names
             .iter()
@@ -128,9 +151,15 @@ mod tests {
         TestSetup { forum, mods }
     }
 
-    fn build_cert(setup: &TestSetup, registry: &RegistryState, member: &MemberSecret, idx: u8) -> (AnonymousPostEnvelope, ModerationCertificate) {
+    fn build_cert(
+        setup: &TestSetup,
+        registry: &RegistryState,
+        member: &MemberSecret,
+        idx: u8,
+    ) -> (AnonymousPostEnvelope, ModerationCertificate) {
         let content_id = digest("content", &[&[idx]]);
-        let post = AnonymousPostEnvelope::build(&setup.forum, registry, member, content_id, vec![idx]);
+        let post =
+            AnonymousPostEnvelope::build(&setup.forum, registry, member, content_id, vec![idx]);
         let reason = digest("reason", &[b"rule"]);
         let st = statement_for(
             &setup.forum,
@@ -162,7 +191,9 @@ mod tests {
         let setup = test_setup();
         let member = MemberSecret::from_seed(&setup.forum.forum_id, setup.forum.k, b"seed");
         let mut registry = RegistryState::default();
-        registry.register(member.commitment(&setup.forum.forum_id)).unwrap();
+        registry
+            .register(member.commitment(&setup.forum.forum_id))
+            .unwrap();
 
         let (_post0, cert0) = build_cert(&setup, &registry, &member, 0);
         let (_post1, cert1) = build_cert(&setup, &registry, &member, 1);
@@ -180,7 +211,10 @@ mod tests {
         let member = MemberSecret::from_seed(&setup.forum.forum_id, setup.forum.k, b"seed");
         let registry = RegistryState::default();
         let (_post, cert) = build_cert(&setup, &registry, &member, 0);
-        assert_eq!(verify_certificate(&forum_b, &cert).unwrap_err(), ProtocolError::InvalidCertificate);
+        assert_eq!(
+            verify_certificate(&forum_b, &cert).unwrap_err(),
+            ProtocolError::InvalidCertificate
+        );
     }
 
     #[test]
@@ -191,7 +225,10 @@ mod tests {
         let member = MemberSecret::from_seed(&setup.forum.forum_id, setup.forum.k, b"seed");
         let registry = RegistryState::default();
         let (_post, cert) = build_cert(&setup, &registry, &member, 0);
-        assert_eq!(verify_certificate(&bumped, &cert).unwrap_err(), ProtocolError::InvalidCertificate);
+        assert_eq!(
+            verify_certificate(&bumped, &cert).unwrap_err(),
+            ProtocolError::InvalidCertificate
+        );
     }
 
     #[test]

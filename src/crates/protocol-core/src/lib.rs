@@ -19,13 +19,20 @@ pub mod types;
 pub use cert::*;
 pub use field::*;
 pub use hash::*;
-pub use merkle::{empty_root, prove_membership as merkle_prove_membership, root_from_set, verify_membership as merkle_verify_membership, MerklePath};
+pub use merkle::{
+    empty_root, prove_membership as merkle_prove_membership,
+    prove_non_membership as merkle_prove_non_membership, root_from_set,
+    verify_membership as merkle_verify_membership,
+    verify_non_membership as merkle_verify_non_membership, MerkleNeighbor, MerklePath,
+    NonMembershipProof,
+};
 pub use shamir::*;
 pub use state::*;
 pub use threshold::{
     aggregate_decrypt, decode_share, encode_share, encrypt, partial_decrypt, verify_partial,
-    Ciphertext, DealerShares, DleqProof, PartialDecryption, Plaintext, SharePublicKey,
-    ShareSecretKey, ThresholdPublicKey, PLAINTEXT_LEN,
+    Ciphertext, DealerShares, DleqProof, PartialDecryption, PedersenDkgContribution,
+    PedersenDkgTranscript, Plaintext, SharePublicKey, ShareSecretKey, ThresholdPublicKey,
+    PLAINTEXT_LEN,
 };
 pub use types::*;
 
@@ -55,6 +62,8 @@ pub enum ProtocolError {
     AlreadyRevoked,
     #[error("unregistered commitment")]
     UnregisteredCommitment,
+    #[error("invalid DKG transcript")]
+    InvalidDkgTranscript,
 }
 
 pub type Result<T> = core::result::Result<T, ProtocolError>;

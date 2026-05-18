@@ -10,3 +10,5 @@ anyhow.workspace = true
 ed25519-dalek.workspace = true
 moderation-sdk = { path = "../moderation-sdk" }
 protocol-core = { path = "../protocol-core" }
+serde_json.workspace = true
+slash-verifier = { path = "../slash-verifier" }

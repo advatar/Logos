@@ -92,10 +92,18 @@ pub struct ModeratorSecret {
 
 impl ModeratorSecret {
     pub fn new(id: ModeratorId, signing_key: SigningKey, share_secret_key: ShareSecretKey) -> Self {
-        Self { id, signing_key, share_secret_key }
+        Self {
+            id,
+            signing_key,
+            share_secret_key,
+        }
     }
 
-    pub fn from_seed_and_share(id: ModeratorId, seed: &[u8; 32], share_secret_key: ShareSecretKey) -> Self {
+    pub fn from_seed_and_share(
+        id: ModeratorId,
+        seed: &[u8; 32],
+        share_secret_key: ShareSecretKey,
+    ) -> Self {
         Self {
             id,
             signing_key: SigningKey::from_bytes(seed),
@@ -120,7 +128,12 @@ impl ModeratorSecret {
     pub fn partial_decrypt(&self, post: &AnonymousPostEnvelope) -> PartialDecryption {
         let pk_share = self.share_secret_key.public();
         let domain_seed = post.dleq_domain_seed();
-        crate::partial_decrypt(&self.share_secret_key, &post.ciphertext, &pk_share, &domain_seed)
+        crate::partial_decrypt(
+            &self.share_secret_key,
+            &post.ciphertext,
+            &pk_share,
+            &domain_seed,
+        )
     }
 }
 
@@ -207,7 +220,9 @@ pub fn verify_certificate(forum: &ForumConfig, cert: &ModerationCertificate) -> 
     let domain_seed = dleq_domain_seed_for(&st.forum_id, &st.post_id);
     let mut seen_idx = BTreeSet::new();
     for pd in &cert.partial_decryptions {
-        let pk_share = forum.share_public_key(pd.idx).ok_or(ProtocolError::InvalidModerator)?;
+        let pk_share = forum
+            .share_public_key(pd.idx)
+            .ok_or(ProtocolError::InvalidModerator)?;
         if !verify_partial(pd, &cert.ciphertext, pk_share, &domain_seed) {
             return Err(ProtocolError::InvalidCertificate);
         }
@@ -221,7 +236,10 @@ pub fn verify_certificate(forum: &ForumConfig, cert: &ModerationCertificate) -> 
 mod serde_signature_bytes {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    pub fn serialize<S: Serializer>(bytes: &[u8; 64], ser: S) -> std::result::Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer>(
+        bytes: &[u8; 64],
+        ser: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
         if ser.is_human_readable() {
             ser.serialize_str(&hex::encode(bytes))
         } else {
@@ -229,15 +247,19 @@ mod serde_signature_bytes {
         }
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(de: D) -> std::result::Result<[u8; 64], D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        de: D,
+    ) -> std::result::Result<[u8; 64], D::Error> {
         use serde::de::Error;
         if de.is_human_readable() {
             let s = String::deserialize(de)?;
             let raw = hex::decode(&s).map_err(D::Error::custom)?;
-            raw.try_into().map_err(|_| D::Error::custom("signature must be 64 bytes"))
+            raw.try_into()
+                .map_err(|_| D::Error::custom("signature must be 64 bytes"))
         } else {
             let raw = <Vec<u8>>::deserialize(de)?;
-            raw.try_into().map_err(|_| D::Error::custom("signature must be 64 bytes"))
+            raw.try_into()
+                .map_err(|_| D::Error::custom("signature must be 64 bytes"))
         }
     }
 }

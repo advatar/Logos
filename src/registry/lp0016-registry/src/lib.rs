@@ -15,8 +15,7 @@
 use std::collections::BTreeMap;
 
 use protocol_core::{
-    digest, slash, ForumConfig, Hash32, ModerationCertificate, ProtocolError, RegistryState,
-    Result,
+    digest, slash, ForumConfig, Hash32, ModerationCertificate, ProtocolError, RegistryState, Result,
 };
 use serde::{Deserialize, Serialize};
 
@@ -133,6 +132,13 @@ pub mod lp0016_registry {
         if ledger.forums.contains_key(&config.forum_id) {
             return Err(ProtocolError::InvalidCertificate);
         }
+        if config.k == 0
+            || config.n == 0
+            || config.n as usize > config.moderators.len()
+            || config.threshold_public_key.is_identity()
+        {
+            return Err(ProtocolError::InvalidCertificate);
+        }
         let registry = RegistryState::default();
         let state = ForumState {
             membership_root: registry.membership_root(),
@@ -157,16 +163,27 @@ pub mod lp0016_registry {
         stake_amount: u64,
         registered_at: u64,
     ) -> Result<()> {
-        let state = ledger.forums.get_mut(&forum_id).ok_or(ProtocolError::InvalidCertificate)?;
+        let state = ledger
+            .forums
+            .get_mut(&forum_id)
+            .ok_or(ProtocolError::InvalidCertificate)?;
         if stake_amount < state.stake_policy.minimum_stake {
             return Err(ProtocolError::InvalidCertificate);
         }
-        let registry = ledger.registries.get_mut(&forum_id).ok_or(ProtocolError::InvalidCertificate)?;
+        let registry = ledger
+            .registries
+            .get_mut(&forum_id)
+            .ok_or(ProtocolError::InvalidCertificate)?;
         registry.register(member_commitment)?;
         state.membership_root = registry.membership_root();
         ledger.members.insert(
             (forum_id, member_commitment),
-            MemberRecord { forum_id, member_commitment, stake_amount, registered_at },
+            MemberRecord {
+                forum_id,
+                member_commitment,
+                stake_amount,
+                registered_at,
+            },
         );
         Ok(())
     }
@@ -180,12 +197,18 @@ pub mod lp0016_registry {
         certificates: Vec<ModerationCertificate>,
         slashed_at: u64,
     ) -> Result<Hash32> {
-        let state = ledger.forums.get_mut(&forum_id).ok_or(ProtocolError::InvalidCertificate)?;
+        let state = ledger
+            .forums
+            .get_mut(&forum_id)
+            .ok_or(ProtocolError::InvalidCertificate)?;
         if state.config.forum_id != forum_id {
             return Err(ProtocolError::InvalidCertificate);
         }
         let bundle_hash = slash_bundle_hash(&certificates);
-        let registry = ledger.registries.get_mut(&forum_id).ok_or(ProtocolError::InvalidCertificate)?;
+        let registry = ledger
+            .registries
+            .get_mut(&forum_id)
+            .ok_or(ProtocolError::InvalidCertificate)?;
         let result = slash(registry, &state.config, &certificates)?;
         state.membership_root = registry.membership_root();
         state.revocation_root = registry.revocation_root();
@@ -218,12 +241,12 @@ mod tests {
     use super::*;
     use ed25519_dalek::SigningKey;
     use protocol_core::{
-        create_vote, statement_for, AnonymousPostEnvelope, DealerShares, MemberSecret,
-        ModeratorId, ModeratorSecret,
+        create_vote, statement_for, AnonymousPostEnvelope, DealerShares, MemberSecret, ModeratorId,
+        ModeratorSecret,
     };
 
     fn build_forum_and_mods() -> (ForumConfig, Vec<ModeratorSecret>) {
-        let dealer = DealerShares::trusted(2, 3, b"lp0016-registry-test-dealer");
+        let dealer = DealerShares::pedersen_dkg(2, 3, b"lp0016-registry-test-dealer");
         let names = ["alice", "bob", "carol"];
         let mods: Vec<ModeratorSecret> = names
             .iter()
@@ -252,7 +275,12 @@ mod tests {
     fn create_forum_initializes_state() {
         let (forum, _mods) = build_forum_and_mods();
         let mut ledger = Ledger::default();
-        create_forum(&mut ledger, forum.clone(), StakePolicy { minimum_stake: 100 }).unwrap();
+        create_forum(
+            &mut ledger,
+            forum.clone(),
+            StakePolicy { minimum_stake: 100 },
+        )
+        .unwrap();
         let state = ledger.forums.get(&forum.forum_id).unwrap();
         assert_eq!(state.config, forum);
         assert_eq!(state.membership_root, protocol_core::empty_root());
@@ -271,7 +299,12 @@ mod tests {
     fn register_then_slash_round_trip() {
         let (forum, mods) = build_forum_and_mods();
         let mut ledger = Ledger::default();
-        create_forum(&mut ledger, forum.clone(), StakePolicy { minimum_stake: 100 }).unwrap();
+        create_forum(
+            &mut ledger,
+            forum.clone(),
+            StakePolicy { minimum_stake: 100 },
+        )
+        .unwrap();
         let member = MemberSecret::from_seed(&forum.forum_id, forum.k, b"seed");
         let commitment = member.commitment(&forum.forum_id);
         register_member(&mut ledger, forum.forum_id, commitment, 200, 0).unwrap();
@@ -280,7 +313,8 @@ mod tests {
         for i in 0..2u8 {
             let content_id = digest("content", &[&[i]]);
             let registry = ledger.registries.get(&forum.forum_id).unwrap().clone();
-            let post = AnonymousPostEnvelope::build(&forum, &registry, &member, content_id, vec![i]);
+            let post =
+                AnonymousPostEnvelope::build(&forum, &registry, &member, content_id, vec![i]);
             let reason = digest("reason", &[b"rule"]);
             let st = statement_for(
                 &forum,
@@ -294,7 +328,10 @@ mod tests {
                 create_vote(&forum, &mods[0], &st).unwrap(),
                 create_vote(&forum, &mods[1], &st).unwrap(),
             ];
-            let partials = vec![mods[0].partial_decrypt(&post), mods[1].partial_decrypt(&post)];
+            let partials = vec![
+                mods[0].partial_decrypt(&post),
+                mods[1].partial_decrypt(&post),
+            ];
             certs.push(ModerationCertificate {
                 statement: st,
                 votes,
@@ -305,7 +342,9 @@ mod tests {
 
         let revoked = slash_member(&mut ledger, forum.forum_id, certs, 99).unwrap();
         assert_eq!(revoked, commitment);
-        assert!(ledger.revocations.contains_key(&(forum.forum_id, commitment)));
+        assert!(ledger
+            .revocations
+            .contains_key(&(forum.forum_id, commitment)));
         let post_state = ledger.forums.get(&forum.forum_id).unwrap();
         assert_ne!(post_state.revocation_root, protocol_core::empty_root());
     }
@@ -314,7 +353,12 @@ mod tests {
     fn register_rejects_insufficient_stake() {
         let (forum, _mods) = build_forum_and_mods();
         let mut ledger = Ledger::default();
-        create_forum(&mut ledger, forum.clone(), StakePolicy { minimum_stake: 100 }).unwrap();
+        create_forum(
+            &mut ledger,
+            forum.clone(),
+            StakePolicy { minimum_stake: 100 },
+        )
+        .unwrap();
         let member = MemberSecret::from_seed(&forum.forum_id, forum.k, b"seed");
         let commitment = member.commitment(&forum.forum_id);
         assert!(register_member(&mut ledger, forum.forum_id, commitment, 50, 0).is_err());
@@ -335,7 +379,8 @@ mod tests {
 
     #[test]
     fn idl_matches_handwritten_file() {
-        let idl_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../idl/lp0016_registry.json");
+        let idl_path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../idl/lp0016_registry.json");
         let raw = std::fs::read_to_string(&idl_path).expect("missing IDL file");
         let idl: serde_json::Value = serde_json::from_str(&raw).unwrap();
         let names: Vec<&str> = idl["instructions"]
@@ -351,8 +396,16 @@ mod tests {
             .iter()
             .map(|a| a["name"].as_str().unwrap())
             .collect();
-        for required in ["ForumState", "MemberRecord", "RevocationRecord", "StakePolicy"] {
-            assert!(accounts.contains(&required), "IDL missing account: {required}");
+        for required in [
+            "ForumState",
+            "MemberRecord",
+            "RevocationRecord",
+            "StakePolicy",
+        ] {
+            assert!(
+                accounts.contains(&required),
+                "IDL missing account: {required}"
+            );
         }
     }
 }

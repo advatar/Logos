@@ -8,11 +8,11 @@
 //! Chaum–Pedersen DLEQ proofs binding `D_i` to their committed public share
 //! `S_i = s_i · G`.
 //!
-//! Distributed key generation (DKG) is out of scope for this module — the
-//! `DealerShares` constructor is a trusted-dealer simulation suitable for
-//! tests and local demos. Production deployments must replace
-//! [`DealerShares::trusted`] with a proper DKG (e.g. Pedersen DKG) before
-//! security review.
+//! The local setup path uses a deterministic Pedersen-style DKG transcript:
+//! each moderator contributes a secret polynomial and a blinding polynomial,
+//! publishes coefficient commitments, and every receiver's share is checked
+//! against those commitments. This is still an in-process simulation of the
+//! network round, but there is no single trusted dealer polynomial.
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
@@ -32,6 +32,10 @@ pub struct ThresholdPublicKey(pub(crate) RistrettoPoint);
 impl ThresholdPublicKey {
     pub fn point(&self) -> RistrettoPoint {
         self.0
+    }
+
+    pub fn is_identity(&self) -> bool {
+        self.0 == RistrettoPoint::default()
     }
 
     pub fn hash(&self) -> Hash32 {
@@ -59,7 +63,10 @@ pub struct ShareSecretKey {
 
 impl ShareSecretKey {
     pub fn public(&self) -> SharePublicKey {
-        SharePublicKey { idx: self.idx, point: RISTRETTO_BASEPOINT_POINT * self.secret.0 }
+        SharePublicKey {
+            idx: self.idx,
+            point: RISTRETTO_BASEPOINT_POINT * self.secret.0,
+        }
     }
 }
 
@@ -92,40 +99,193 @@ pub struct DealerShares {
 }
 
 impl DealerShares {
-    /// Generate a trusted-dealer key set: degree `threshold - 1` polynomial
-    /// with `total` evaluation points indexed `1..=total`. Replace with a real
-    /// DKG before production.
-    pub fn trusted(threshold: u32, total: u32, seed: &[u8]) -> Self {
-        assert!(threshold >= 1 && threshold <= total, "invalid threshold/total");
-        let mut coeffs = Vec::with_capacity(threshold as usize);
-        for i in 0..threshold {
-            coeffs.push(hash_to_field("dealer-poly-coeff", &[seed, &i.to_be_bytes()]));
+    /// Generate a deterministic Pedersen-style DKG transcript and return the
+    /// aggregate key material for local tests/demos. Production networking
+    /// should exchange the same transcript messages between moderators instead
+    /// of deriving all participant contributions from one local seed.
+    pub fn pedersen_dkg(threshold: u32, total: u32, seed: &[u8]) -> Self {
+        let transcript = PedersenDkgTranscript::deterministic(threshold, total, seed)
+            .expect("invalid DKG parameters");
+        Self::from_pedersen_transcript(&transcript).expect("deterministic DKG transcript verifies")
+    }
+
+    pub fn from_pedersen_transcript(transcript: &PedersenDkgTranscript) -> Result<Self> {
+        transcript.verify()?;
+        let mut secret = Scalar::ZERO;
+        let mut threshold_public = RistrettoPoint::default();
+        for contribution in &transcript.contributions {
+            secret += contribution.value_coefficients[0];
+            threshold_public += contribution.value_commitments[0];
         }
-        let secret = coeffs[0];
-        let threshold_public_key = ThresholdPublicKey(RISTRETTO_BASEPOINT_POINT * secret.0);
-        let mut share_secret_keys = Vec::with_capacity(total as usize);
-        let mut share_public_keys = Vec::with_capacity(total as usize);
-        for j in 1..=total {
-            let x = Scalar::from_u64(j as u64);
-            let s_j = eval_poly(&coeffs, x);
-            let sk = ShareSecretKey { idx: j, secret: s_j };
+        let threshold_public_key = ThresholdPublicKey(threshold_public);
+        let mut coeffs = Vec::with_capacity(transcript.threshold as usize);
+        coeffs.resize(transcript.threshold as usize, Scalar::ZERO);
+        for contribution in &transcript.contributions {
+            for (dst, src) in coeffs
+                .iter_mut()
+                .zip(contribution.value_coefficients.iter())
+            {
+                *dst += *src;
+            }
+        }
+
+        let mut share_secret_keys = Vec::with_capacity(transcript.total as usize);
+        let mut share_public_keys = Vec::with_capacity(transcript.total as usize);
+        for receiver_idx in 1..=transcript.total {
+            let x = Scalar::from_u64(receiver_idx as u64);
+            let s_i = eval_poly(&coeffs, x);
+            let sk = ShareSecretKey {
+                idx: receiver_idx,
+                secret: s_i,
+            };
+            let public_from_commitments = transcript.aggregate_public_share(receiver_idx)?;
+            if sk.public().point != public_from_commitments {
+                return Err(ProtocolError::InvalidDkgTranscript);
+            }
             share_public_keys.push(sk.public());
             share_secret_keys.push(sk);
         }
-        Self { secret, threshold_public_key, share_secret_keys, share_public_keys }
+        Ok(Self {
+            secret,
+            threshold_public_key,
+            share_secret_keys,
+            share_public_keys,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PedersenDkgTranscript {
+    pub threshold: u32,
+    pub total: u32,
+    pub contributions: Vec<PedersenDkgContribution>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PedersenDkgContribution {
+    pub participant_idx: u32,
+    pub value_commitments: Vec<RistrettoPoint>,
+    pub pedersen_commitments: Vec<RistrettoPoint>,
+    value_coefficients: Vec<Scalar>,
+    blind_coefficients: Vec<Scalar>,
+    value_shares: Vec<Scalar>,
+    blind_shares: Vec<Scalar>,
+}
+
+impl PedersenDkgTranscript {
+    pub fn deterministic(threshold: u32, total: u32, seed: &[u8]) -> Result<Self> {
+        if threshold == 0 || total == 0 || threshold > total {
+            return Err(ProtocolError::InvalidDkgTranscript);
+        }
+        let h = pedersen_blinding_base();
+        let mut contributions = Vec::with_capacity(total as usize);
+        for participant_idx in 1..=total {
+            let p_bytes = participant_idx.to_be_bytes();
+            let mut value_coefficients = Vec::with_capacity(threshold as usize);
+            let mut blind_coefficients = Vec::with_capacity(threshold as usize);
+            let mut value_commitments = Vec::with_capacity(threshold as usize);
+            let mut pedersen_commitments = Vec::with_capacity(threshold as usize);
+            for coeff_idx in 0..threshold {
+                let c_bytes = coeff_idx.to_be_bytes();
+                let value = hash_to_field("dkg-value-coeff", &[seed, &p_bytes, &c_bytes]);
+                let blind = hash_to_field("dkg-blind-coeff", &[seed, &p_bytes, &c_bytes]);
+                value_coefficients.push(value);
+                blind_coefficients.push(blind);
+                value_commitments.push(RISTRETTO_BASEPOINT_POINT * value.0);
+                pedersen_commitments.push(RISTRETTO_BASEPOINT_POINT * value.0 + h * blind.0);
+            }
+            let mut value_shares = Vec::with_capacity(total as usize);
+            let mut blind_shares = Vec::with_capacity(total as usize);
+            for receiver_idx in 1..=total {
+                let x = Scalar::from_u64(receiver_idx as u64);
+                value_shares.push(eval_poly(&value_coefficients, x));
+                blind_shares.push(eval_poly(&blind_coefficients, x));
+            }
+            contributions.push(PedersenDkgContribution {
+                participant_idx,
+                value_commitments,
+                pedersen_commitments,
+                value_coefficients,
+                blind_coefficients,
+                value_shares,
+                blind_shares,
+            });
+        }
+        let transcript = Self {
+            threshold,
+            total,
+            contributions,
+        };
+        transcript.verify()?;
+        Ok(transcript)
+    }
+
+    pub fn verify(&self) -> Result<()> {
+        if self.threshold == 0
+            || self.total == 0
+            || self.threshold > self.total
+            || self.contributions.len() != self.total as usize
+        {
+            return Err(ProtocolError::InvalidDkgTranscript);
+        }
+        let h = pedersen_blinding_base();
+        let mut seen = std::collections::BTreeSet::new();
+        for contribution in &self.contributions {
+            if contribution.participant_idx == 0
+                || contribution.participant_idx > self.total
+                || !seen.insert(contribution.participant_idx)
+                || contribution.value_commitments.len() != self.threshold as usize
+                || contribution.pedersen_commitments.len() != self.threshold as usize
+                || contribution.value_coefficients.len() != self.threshold as usize
+                || contribution.blind_coefficients.len() != self.threshold as usize
+                || contribution.value_shares.len() != self.total as usize
+                || contribution.blind_shares.len() != self.total as usize
+            {
+                return Err(ProtocolError::InvalidDkgTranscript);
+            }
+            for receiver_idx in 1..=self.total {
+                let pos = (receiver_idx - 1) as usize;
+                let x = Scalar::from_u64(receiver_idx as u64);
+                let committed = eval_point_poly(&contribution.pedersen_commitments, x);
+                let opened = RISTRETTO_BASEPOINT_POINT * contribution.value_shares[pos].0
+                    + h * contribution.blind_shares[pos].0;
+                if committed != opened {
+                    return Err(ProtocolError::InvalidDkgTranscript);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn aggregate_public_share(&self, receiver_idx: u32) -> Result<RistrettoPoint> {
+        if receiver_idx == 0 || receiver_idx > self.total {
+            return Err(ProtocolError::InvalidDkgTranscript);
+        }
+        let x = Scalar::from_u64(receiver_idx as u64);
+        let mut acc = RistrettoPoint::default();
+        for contribution in &self.contributions {
+            acc += eval_point_poly(&contribution.value_commitments, x);
+        }
+        Ok(acc)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ciphertext {
-    #[serde(serialize_with = "ser_ciphertext_c1", deserialize_with = "de_ciphertext_c1")]
+    #[serde(
+        serialize_with = "ser_ciphertext_c1",
+        deserialize_with = "de_ciphertext_c1"
+    )]
     pub c1: RistrettoPoint,
     pub c2: Vec<u8>,
 }
 
 impl Ciphertext {
     pub fn hash(&self) -> Hash32 {
-        digest("threshold-ciphertext", &[&self.c1.compress().to_bytes(), &self.c2])
+        digest(
+            "threshold-ciphertext",
+            &[&self.c1.compress().to_bytes(), &self.c2],
+        )
     }
 }
 
@@ -149,7 +309,10 @@ pub fn encrypt(pk: &ThresholdPublicKey, plaintext: &Plaintext, nonce_seed: &[u8]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PartialDecryption {
     pub idx: u32,
-    #[serde(serialize_with = "ser_ciphertext_c1", deserialize_with = "de_ciphertext_c1")]
+    #[serde(
+        serialize_with = "ser_ciphertext_c1",
+        deserialize_with = "de_ciphertext_c1"
+    )]
     pub d: RistrettoPoint,
     pub dleq: DleqProof,
 }
@@ -169,7 +332,11 @@ pub fn partial_decrypt(
 ) -> PartialDecryption {
     let d = ciphertext.c1 * sk.secret.0;
     let dleq = dleq_prove(&sk.secret, &ciphertext.c1, &pk_share.point, &d, domain_seed);
-    PartialDecryption { idx: sk.idx, d, dleq }
+    PartialDecryption {
+        idx: sk.idx,
+        d,
+        dleq,
+    }
 }
 
 pub fn verify_partial(
@@ -179,7 +346,13 @@ pub fn verify_partial(
     domain_seed: &[u8],
 ) -> bool {
     pd.idx == pk_share.idx
-        && dleq_verify(&pk_share.point, &ciphertext.c1, &pd.d, &pd.dleq, domain_seed)
+        && dleq_verify(
+            &pk_share.point,
+            &ciphertext.c1,
+            &pd.d,
+            &pd.dleq,
+            domain_seed,
+        )
 }
 
 /// Aggregate `N` verified partial decryptions and recover the plaintext.
@@ -205,7 +378,10 @@ pub fn aggregate_decrypt(
     // lambda_i(0) is the Lagrange basis at zero evaluated against the share
     // indices. Compute Lagrange coefficients in the scalar field, then take
     // the group multi-scalar combination.
-    let xs: Vec<Scalar> = partials.iter().map(|p| Scalar::from_u64(p.idx as u64)).collect();
+    let xs: Vec<Scalar> = partials
+        .iter()
+        .map(|p| Scalar::from_u64(p.idx as u64))
+        .collect();
     let lambdas = lagrange_zero(&xs)?;
     let mut acc = RistrettoPoint::default();
     for (lambda, pd) in lambdas.iter().zip(partials.iter()) {
@@ -325,6 +501,25 @@ fn lagrange_zero(xs: &[Scalar]) -> Result<Vec<Scalar>> {
     Ok(out)
 }
 
+fn eval_point_poly(coeffs: &[RistrettoPoint], x: Scalar) -> RistrettoPoint {
+    let mut acc = RistrettoPoint::default();
+    let mut power = Scalar::ONE;
+    for coeff in coeffs {
+        acc += *coeff * power.0;
+        power *= x;
+    }
+    acc
+}
+
+fn pedersen_blinding_base() -> RistrettoPoint {
+    let mut wide = [0u8; 64];
+    let h0 = digest("pedersen-h", &[b"0"]);
+    let h1 = digest("pedersen-h", &[b"1"]);
+    wide[..32].copy_from_slice(&h0);
+    wide[32..].copy_from_slice(&h1);
+    RistrettoPoint::from_uniform_bytes(&wide)
+}
+
 fn kdf(shared: &RistrettoPoint, len: usize) -> Vec<u8> {
     // SHA-256 in counter mode, salt = "lp0016:threshold-kdf:v1".
     let shared_bytes = shared.compress().to_bytes();
@@ -362,20 +557,29 @@ fn de_point<'de, D: Deserializer<'de>>(de: D) -> std::result::Result<RistrettoPo
     if de.is_human_readable() {
         let s = String::deserialize(de)?;
         let raw = hex::decode(&s).map_err(D::Error::custom)?;
-        let bytes: [u8; 32] = raw.try_into().map_err(|_| D::Error::custom("point must be 32 bytes"))?;
+        let bytes: [u8; 32] = raw
+            .try_into()
+            .map_err(|_| D::Error::custom("point must be 32 bytes"))?;
         decompress(bytes).map_err(D::Error::custom)
     } else {
         let raw = <Vec<u8>>::deserialize(de)?;
-        let bytes: [u8; 32] = raw.try_into().map_err(|_| D::Error::custom("point must be 32 bytes"))?;
+        let bytes: [u8; 32] = raw
+            .try_into()
+            .map_err(|_| D::Error::custom("point must be 32 bytes"))?;
         decompress(bytes).map_err(D::Error::custom)
     }
 }
 
-fn ser_ciphertext_c1<S: Serializer>(point: &RistrettoPoint, s: S) -> std::result::Result<S::Ok, S::Error> {
+fn ser_ciphertext_c1<S: Serializer>(
+    point: &RistrettoPoint,
+    s: S,
+) -> std::result::Result<S::Ok, S::Error> {
     ser_point(point, s)
 }
 
-fn de_ciphertext_c1<'de, D: Deserializer<'de>>(de: D) -> std::result::Result<RistrettoPoint, D::Error> {
+fn de_ciphertext_c1<'de, D: Deserializer<'de>>(
+    de: D,
+) -> std::result::Result<RistrettoPoint, D::Error> {
     de_point(de)
 }
 
@@ -392,9 +596,12 @@ mod tests {
 
     #[test]
     fn dealer_shares_satisfy_threshold() {
-        let dealer = DealerShares::trusted(2, 3, b"test-seed");
+        let dealer = DealerShares::pedersen_dkg(2, 3, b"test-seed");
         // The interpolation at x=0 of any two share secrets must equal the master secret.
-        let xs: Vec<Scalar> = dealer.share_secret_keys[..2].iter().map(|s| Scalar::from_u64(s.idx as u64)).collect();
+        let xs: Vec<Scalar> = dealer.share_secret_keys[..2]
+            .iter()
+            .map(|s| Scalar::from_u64(s.idx as u64))
+            .collect();
         let lambdas = lagrange_zero(&xs).unwrap();
         let mut recovered = Scalar::ZERO;
         for (l, sk) in lambdas.iter().zip(dealer.share_secret_keys[..2].iter()) {
@@ -404,9 +611,22 @@ mod tests {
     }
 
     #[test]
+    fn pedersen_dkg_transcript_rejects_tampered_share() {
+        let mut transcript = PedersenDkgTranscript::deterministic(2, 3, b"dkg-seed").unwrap();
+        transcript.contributions[0].value_shares[0] += Scalar::ONE;
+        assert_eq!(
+            transcript.verify().unwrap_err(),
+            ProtocolError::InvalidDkgTranscript
+        );
+    }
+
+    #[test]
     fn encrypt_aggregate_round_trip() {
-        let dealer = DealerShares::trusted(2, 3, b"rt-seed");
-        let share = Share { x: Scalar::from_u64(42), y: Scalar::from_u64(99) };
+        let dealer = DealerShares::pedersen_dkg(2, 3, b"rt-seed");
+        let share = Share {
+            x: Scalar::from_u64(42),
+            y: Scalar::from_u64(99),
+        };
         let plaintext = encode_share(share);
         let ct = encrypt(&dealer.threshold_public_key, &plaintext, b"nonce-0");
         let domain_seed = digest("post-id", &[b"unit-1"]);
@@ -425,21 +645,37 @@ mod tests {
 
     #[test]
     fn dleq_rejects_wrong_secret() {
-        let dealer = DealerShares::trusted(2, 3, b"bad-seed");
-        let share = Share { x: Scalar::from_u64(1), y: Scalar::from_u64(2) };
+        let dealer = DealerShares::pedersen_dkg(2, 3, b"bad-seed");
+        let share = Share {
+            x: Scalar::from_u64(1),
+            y: Scalar::from_u64(2),
+        };
         let plaintext = encode_share(share);
         let ct = encrypt(&dealer.threshold_public_key, &plaintext, b"n");
         let domain_seed = digest("post-id", &[b"u"]);
         // Use moderator 1's secret but claim it's moderator 2's public share.
-        let mut tampered = partial_decrypt(&dealer.share_secret_keys[0], &ct, &dealer.share_public_keys[0], &domain_seed);
+        let mut tampered = partial_decrypt(
+            &dealer.share_secret_keys[0],
+            &ct,
+            &dealer.share_public_keys[0],
+            &domain_seed,
+        );
         tampered.idx = dealer.share_public_keys[1].idx;
-        assert!(!verify_partial(&tampered, &ct, &dealer.share_public_keys[1], &domain_seed));
+        assert!(!verify_partial(
+            &tampered,
+            &ct,
+            &dealer.share_public_keys[1],
+            &domain_seed
+        ));
     }
 
     #[test]
     fn fewer_than_threshold_does_not_recover() {
-        let dealer = DealerShares::trusted(2, 3, b"few-seed");
-        let share = Share { x: Scalar::from_u64(7), y: Scalar::from_u64(11) };
+        let dealer = DealerShares::pedersen_dkg(2, 3, b"few-seed");
+        let share = Share {
+            x: Scalar::from_u64(7),
+            y: Scalar::from_u64(11),
+        };
         let plaintext = encode_share(share);
         let ct = encrypt(&dealer.threshold_public_key, &plaintext, b"n");
         let domain_seed = digest("post-id", &[b"f"]);
@@ -460,8 +696,11 @@ mod tests {
 
     #[test]
     fn ciphertext_json_round_trip() {
-        let dealer = DealerShares::trusted(2, 3, b"json-seed");
-        let share = Share { x: Scalar::from_u64(13), y: Scalar::from_u64(17) };
+        let dealer = DealerShares::pedersen_dkg(2, 3, b"json-seed");
+        let share = Share {
+            x: Scalar::from_u64(13),
+            y: Scalar::from_u64(17),
+        };
         let plaintext = encode_share(share);
         let ct = encrypt(&dealer.threshold_public_key, &plaintext, b"n");
         let s = serde_json::to_string(&ct).unwrap();

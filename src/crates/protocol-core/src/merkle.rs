@@ -4,9 +4,9 @@
 //! same root. Each level pads the right side with the last node when the
 //! count is odd. Empty trees return the canonical empty root.
 //!
-//! Membership proofs are produced for any leaf in the sorted set. Non-membership
-//! proofs (sparse / indexed-Merkle-tree style) are deferred to Phase 4 (RISC0
-//! guest) where the circuit shape decides the encoding; see `STATUS.md`.
+//! Membership and non-membership proofs are produced against the same sorted
+//! set. Non-membership is encoded as predecessor/successor membership proofs
+//! plus adjacency checks on their sorted leaf indices.
 
 use serde::{Deserialize, Serialize};
 
@@ -45,7 +45,11 @@ pub fn root_from_set<I: IntoIterator<Item = Hash32>>(leaves: I) -> Hash32 {
         let mut i = 0;
         while i < level.len() {
             let left = level[i];
-            let right = if i + 1 < level.len() { level[i + 1] } else { level[i] };
+            let right = if i + 1 < level.len() {
+                level[i + 1]
+            } else {
+                level[i]
+            };
             next.push(hash_node(&left, &right));
             i += 2;
         }
@@ -61,6 +65,20 @@ pub fn root_from_set<I: IntoIterator<Item = Hash32>>(leaves: I) -> Hash32 {
 pub struct MerklePath {
     pub siblings: Vec<Hash32>,
     pub is_left: Vec<bool>,
+    pub leaf_index: u32,
+    pub leaf_count: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MerkleNeighbor {
+    pub leaf: Hash32,
+    pub path: MerklePath,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NonMembershipProof {
+    pub predecessor: Option<MerkleNeighbor>,
+    pub successor: Option<MerkleNeighbor>,
 }
 
 pub fn prove_membership(leaves: &[Hash32], target: &Hash32) -> Option<MerklePath> {
@@ -72,6 +90,8 @@ pub fn prove_membership(leaves: &[Hash32], target: &Hash32) -> Option<MerklePath
 }
 
 fn path_at(sorted: &[Hash32], mut idx: usize) -> MerklePath {
+    let leaf_index = idx as u32;
+    let leaf_count = sorted.len() as u32;
     let mut level: Vec<Hash32> = sorted.iter().map(hash_leaf).collect();
     let mut siblings = Vec::new();
     let mut is_left = Vec::new();
@@ -89,29 +109,119 @@ fn path_at(sorted: &[Hash32], mut idx: usize) -> MerklePath {
         let mut i = 0;
         while i < level.len() {
             let l = level[i];
-            let r = if i + 1 < level.len() { level[i + 1] } else { level[i] };
+            let r = if i + 1 < level.len() {
+                level[i + 1]
+            } else {
+                level[i]
+            };
             next.push(hash_node(&l, &r));
             i += 2;
         }
         idx /= 2;
         level = next;
     }
-    MerklePath { siblings, is_left }
+    MerklePath {
+        siblings,
+        is_left,
+        leaf_index,
+        leaf_count,
+    }
 }
 
 pub fn verify_membership(root: &Hash32, leaf: &Hash32, path: &MerklePath) -> bool {
     if path.siblings.len() != path.is_left.len() {
         return false;
     }
+    if path.leaf_count == 0 || path.leaf_index >= path.leaf_count {
+        return false;
+    }
     let mut acc = hash_leaf(leaf);
     if path.siblings.is_empty() {
         // Singleton tree: root is the (domain-separated) leaf hash itself.
-        return &acc == root;
+        return path.leaf_count == 1 && path.leaf_index == 0 && &acc == root;
     }
     for (sib, is_left) in path.siblings.iter().zip(path.is_left.iter()) {
-        acc = if *is_left { hash_node(&acc, sib) } else { hash_node(sib, &acc) };
+        acc = if *is_left {
+            hash_node(&acc, sib)
+        } else {
+            hash_node(sib, &acc)
+        };
     }
     &acc == root
+}
+
+pub fn prove_non_membership(leaves: &[Hash32], target: &Hash32) -> Option<NonMembershipProof> {
+    let mut sorted: Vec<Hash32> = leaves.to_vec();
+    sorted.sort_unstable();
+    sorted.dedup();
+    if sorted.binary_search(target).is_ok() {
+        return None;
+    }
+    if sorted.is_empty() {
+        return Some(NonMembershipProof {
+            predecessor: None,
+            successor: None,
+        });
+    }
+    let insertion = sorted.partition_point(|leaf| leaf < target);
+    let predecessor = insertion.checked_sub(1).map(|idx| MerkleNeighbor {
+        leaf: sorted[idx],
+        path: path_at(&sorted, idx),
+    });
+    let successor = if insertion < sorted.len() {
+        Some(MerkleNeighbor {
+            leaf: sorted[insertion],
+            path: path_at(&sorted, insertion),
+        })
+    } else {
+        None
+    };
+    Some(NonMembershipProof {
+        predecessor,
+        successor,
+    })
+}
+
+pub fn verify_non_membership(root: &Hash32, target: &Hash32, proof: &NonMembershipProof) -> bool {
+    if proof.predecessor.is_none() && proof.successor.is_none() {
+        return root == &empty_root();
+    }
+
+    let leaf_count = proof
+        .predecessor
+        .as_ref()
+        .map(|n| n.path.leaf_count)
+        .or_else(|| proof.successor.as_ref().map(|n| n.path.leaf_count));
+    let Some(leaf_count) = leaf_count else {
+        return false;
+    };
+    if leaf_count == 0 {
+        return false;
+    }
+
+    if let Some(pred) = &proof.predecessor {
+        if !(pred.leaf < *target) || !verify_membership(root, &pred.leaf, &pred.path) {
+            return false;
+        }
+        if pred.path.leaf_count != leaf_count {
+            return false;
+        }
+    }
+    if let Some(succ) = &proof.successor {
+        if !(*target < succ.leaf) || !verify_membership(root, &succ.leaf, &succ.path) {
+            return false;
+        }
+        if succ.path.leaf_count != leaf_count {
+            return false;
+        }
+    }
+
+    match (&proof.predecessor, &proof.successor) {
+        (Some(pred), Some(succ)) => pred.path.leaf_index + 1 == succ.path.leaf_index,
+        (Some(pred), None) => pred.path.leaf_index + 1 == leaf_count,
+        (None, Some(succ)) => succ.path.leaf_index == 0,
+        (None, None) => false,
+    }
 }
 
 #[cfg(test)]
@@ -170,5 +280,50 @@ mod tests {
             first[0] ^= 0xff;
         }
         assert!(!verify_membership(&root, &h(1), &path));
+    }
+
+    #[test]
+    fn non_membership_proof_round_trips_between_neighbors() {
+        let leaves = vec![h(1), h(3), h(5), h(7)];
+        let root = root_from_set(leaves.clone());
+        let target = h(4);
+        let proof = prove_non_membership(&leaves, &target).unwrap();
+        assert!(verify_non_membership(&root, &target, &proof));
+    }
+
+    #[test]
+    fn non_membership_proof_handles_edges_and_empty_set() {
+        let leaves = vec![h(4), h(9)];
+        let root = root_from_set(leaves.clone());
+        let low = [0u8; 32];
+        let high = [0xffu8; 32];
+        assert!(verify_non_membership(
+            &root,
+            &low,
+            &prove_non_membership(&leaves, &low).unwrap()
+        ));
+        assert!(verify_non_membership(
+            &root,
+            &high,
+            &prove_non_membership(&leaves, &high).unwrap()
+        ));
+
+        let empty = Vec::new();
+        let proof = prove_non_membership(&empty, &low).unwrap();
+        assert!(verify_non_membership(&empty_root(), &low, &proof));
+    }
+
+    #[test]
+    fn non_membership_proof_is_none_for_member_and_rejects_tampering() {
+        let leaves = vec![h(1), h(3), h(5)];
+        let root = root_from_set(leaves.clone());
+        assert!(prove_non_membership(&leaves, &h(3)).is_none());
+
+        let target = h(4);
+        let mut proof = prove_non_membership(&leaves, &target).unwrap();
+        if let Some(succ) = proof.successor.as_mut() {
+            succ.path.leaf_index += 1;
+        }
+        assert!(!verify_non_membership(&root, &target, &proof));
     }
 }
