@@ -33,6 +33,19 @@ impl RegistryState {
         self.revoked.insert(commitment);
         Ok(())
     }
+
+    /// Merkle root over `registered`. Bound into the post public-inputs hash
+    /// so the RISC0 guest (Phase 4) can verify membership without trusting the
+    /// caller. The set is implicitly sorted by [`crate::root_from_set`].
+    pub fn membership_root(&self) -> Hash32 {
+        crate::root_from_set(self.registered.iter().copied())
+    }
+
+    /// Merkle root over `revoked`. Used the same way as
+    /// [`Self::membership_root`] for non-membership proofs in the guest.
+    pub fn revocation_root(&self) -> Hash32 {
+        crate::root_from_set(self.revoked.iter().copied())
+    }
 }
 
 pub fn verify_post(registry: &RegistryState, forum: &ForumConfig, post: &AnonymousPostEnvelope) -> Result<()> {
@@ -115,9 +128,9 @@ mod tests {
         TestSetup { forum, mods }
     }
 
-    fn build_cert(setup: &TestSetup, member: &MemberSecret, idx: u8) -> (AnonymousPostEnvelope, ModerationCertificate) {
+    fn build_cert(setup: &TestSetup, registry: &RegistryState, member: &MemberSecret, idx: u8) -> (AnonymousPostEnvelope, ModerationCertificate) {
         let content_id = digest("content", &[&[idx]]);
-        let post = AnonymousPostEnvelope::build(&setup.forum, member, content_id, vec![idx]);
+        let post = AnonymousPostEnvelope::build(&setup.forum, registry, member, content_id, vec![idx]);
         let reason = digest("reason", &[b"rule"]);
         let st = statement_for(
             &setup.forum,
@@ -151,8 +164,8 @@ mod tests {
         let mut registry = RegistryState::default();
         registry.register(member.commitment(&setup.forum.forum_id)).unwrap();
 
-        let (_post0, cert0) = build_cert(&setup, &member, 0);
-        let (_post1, cert1) = build_cert(&setup, &member, 1);
+        let (_post0, cert0) = build_cert(&setup, &registry, &member, 0);
+        let (_post1, cert1) = build_cert(&setup, &registry, &member, 1);
         verify_certificate(&setup.forum, &cert0).unwrap();
         verify_certificate(&setup.forum, &cert1).unwrap();
         let result = slash(&mut registry, &setup.forum, &[cert0, cert1]).unwrap();
@@ -165,7 +178,8 @@ mod tests {
         let mut forum_b = setup.forum.clone();
         forum_b.forum_id = digest("forum", &[b"other"]);
         let member = MemberSecret::from_seed(&setup.forum.forum_id, setup.forum.k, b"seed");
-        let (_post, cert) = build_cert(&setup, &member, 0);
+        let registry = RegistryState::default();
+        let (_post, cert) = build_cert(&setup, &registry, &member, 0);
         assert_eq!(verify_certificate(&forum_b, &cert).unwrap_err(), ProtocolError::InvalidCertificate);
     }
 
@@ -175,7 +189,20 @@ mod tests {
         let mut bumped = setup.forum.clone();
         bumped.mod_set_version += 1;
         let member = MemberSecret::from_seed(&setup.forum.forum_id, setup.forum.k, b"seed");
-        let (_post, cert) = build_cert(&setup, &member, 0);
+        let registry = RegistryState::default();
+        let (_post, cert) = build_cert(&setup, &registry, &member, 0);
         assert_eq!(verify_certificate(&bumped, &cert).unwrap_err(), ProtocolError::InvalidCertificate);
+    }
+
+    #[test]
+    fn registry_roots_change_on_register_and_revoke() {
+        let mut registry = RegistryState::default();
+        let empty = registry.membership_root();
+        assert_eq!(empty, crate::empty_root());
+        registry.register(digest("c", &[b"1"])).unwrap();
+        assert_ne!(registry.membership_root(), empty);
+        let before = registry.revocation_root();
+        registry.revoke(digest("c", &[b"1"])).unwrap();
+        assert_ne!(registry.revocation_root(), before);
     }
 }

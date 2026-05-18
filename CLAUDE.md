@@ -80,11 +80,12 @@ Rust `protocol-core` is on the production targets for three primitives:
 - **Ed25519 moderator signatures** (`ed25519_dalek::SigningKey`/`VerifyingKey`), signing the canonical statement hash. `ForumConfig.moderators` holds `ModeratorIdentity { id, verifying_key, share_public_key }`.
 - **Threshold ElGamal + Chaum–Pedersen DLEQ** (`protocol-core::threshold`): `ThresholdPublicKey`, per-moderator `ShareSecretKey`/`SharePublicKey`, hybrid encryption of the 64-byte `(x, y)` payload with SHA-256 KDF, partial decryptions with DLEQ proofs bound to the post's domain seed, Lagrange-at-zero aggregator. `AnonymousPostEnvelope` carries the real `Ciphertext`; `ModerationCertificate` carries `Vec<PartialDecryption>` (DLEQ-proven). `cert.revealed_share(forum)` aggregates trustlessly; `slash` no longer trusts an input share.
 
+Registry state binds **Merkle roots** for membership and revocation. `RegistryState::membership_root()` and `revocation_root()` derive from the current sets via `protocol-core::merkle` (sorted, de-duplicating, leaf/node domain-separated). `AnonymousPostEnvelope::build` takes the registry and binds both roots into the public-inputs hash. Non-membership proofs against the revocation root are deferred until the RISC0 guest fixes the in-circuit encoding.
+
 Still dev/mock and pending replacement (`STATUS.md` tracks):
 
 - `MockZkReceipt` — stand-in for the RISC0 membership/post receipt.
 - `DealerShares::trusted` — single-trusted-party DKG. Fine for tests/demos; production needs Pedersen DKG so no party ever sees `s`.
-- Flat `BTreeSet<Hash32>` membership/revocation state — Merkle roots not yet wired in.
 
 The Python simulator stays on the dev field (`2^61 - 1`), the dev `ModeratorKey` SHA-256-derived signature, and the `ThresholdOracle` HashMap stand-in. It's the executable structural reference. Python mirrors all transcript bindings the Rust core enforces (forum_id, mod_set_version, threshold_public_key_hash, K/N), so a protocol-level change must update both. Commitment *bytes* will not match between Python and Rust for the same seed because the fields differ — that's expected.
 

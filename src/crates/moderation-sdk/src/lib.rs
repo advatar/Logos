@@ -73,7 +73,7 @@ impl<S: OffchainStore> ForumSdk<S> {
         if !self.registry.is_active(&commitment) {
             return Err(ProtocolError::CommitmentNotActive);
         }
-        Ok(AnonymousPostEnvelope::build(&self.forum, member, content_id, nonce))
+        Ok(AnonymousPostEnvelope::build(&self.forum, &self.registry, member, content_id, nonce))
     }
 
     pub fn persist_post(&mut self, post: &AnonymousPostEnvelope) -> Result<String> {

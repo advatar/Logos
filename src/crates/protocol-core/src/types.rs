@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{digest, encrypt, encode_share, Ciphertext, Hash32, Scalar, SharePublicKey, ThresholdPublicKey};
+use crate::{digest, encrypt, encode_share, Ciphertext, Hash32, RegistryState, Scalar, SharePublicKey, ThresholdPublicKey};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ForumConfig {
@@ -85,16 +85,20 @@ pub struct AnonymousPostEnvelope {
     pub ciphertext_hash: Hash32,
     pub share_commitment: Hash32,
     pub retro_tag: Hash32,
+    pub membership_root: Hash32,
+    pub revocation_root: Hash32,
     pub zk_receipt: MockZkReceipt,
 }
 
 impl AnonymousPostEnvelope {
     /// Build a post envelope with a real threshold-ElGamal ciphertext under
-    /// the forum's threshold public key. The ZK receipt is still a
-    /// `MockZkReceipt`; the RISC0 path will replace that without changing the
-    /// rest of the envelope.
+    /// the forum's threshold public key, binding the registry's membership
+    /// and revocation Merkle roots into the public-inputs hash. The ZK
+    /// receipt is still a `MockZkReceipt`; the RISC0 path will replace that
+    /// without changing the rest of the envelope.
     pub fn build(
         forum: &ForumConfig,
+        registry: &RegistryState,
         member: &MemberSecret,
         content_id: Hash32,
         nonce: Vec<u8>,
@@ -106,6 +110,8 @@ impl AnonymousPostEnvelope {
         let ciphertext = encrypt(&forum.threshold_public_key, &plaintext, &post_id);
         let ciphertext_hash = ciphertext.hash();
         let retro_tag = crate::retro_tag(&forum.forum_id, &member.coeffs, &content_id, &nonce);
+        let membership_root = registry.membership_root();
+        let revocation_root = registry.revocation_root();
         let k_bytes = [forum.k];
         let public_inputs_hash = digest(
             "proof-public-inputs",
@@ -118,6 +124,8 @@ impl AnonymousPostEnvelope {
                 &share_commitment,
                 &retro_tag,
                 &forum.threshold_public_key_hash(),
+                &membership_root,
+                &revocation_root,
             ],
         );
         let commitment = member.commitment(&forum.forum_id);
@@ -131,6 +139,8 @@ impl AnonymousPostEnvelope {
             ciphertext_hash,
             share_commitment,
             retro_tag,
+            membership_root,
+            revocation_root,
             zk_receipt: MockZkReceipt {
                 public_inputs_hash,
                 hidden_commitment_for_local_model: commitment,

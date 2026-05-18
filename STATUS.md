@@ -43,12 +43,16 @@ Deferred for follow-up:
 - [ ] Real DKG (e.g. Pedersen) replacing `DealerShares::trusted`. The trusted-dealer is fine for tests/demos and clearly labeled, but production needs no single party that ever sees `s`.
 - [ ] Batch DLEQ verification for large `N` (current code verifies one at a time).
 
-### Phase 3 — Registry roots + Merkle paths
+### Phase 3 — Registry roots + Merkle paths ✅ (non-membership proofs deferred)
 
-- [ ] Add a binary Merkle tree module (`protocol-core::merkle`) over `Hash32` with deterministic node hashing (`digest("merkle-node", left, right)`).
-- [ ] Extend `RegistryState` with `membership_root` and `revocation_root` recomputed on every mutation; expose `prove_membership` and `prove_non_membership` (sparse-Merkle path).
-- [ ] Bump the canonical public inputs hash to include `membership_root`, `revocation_root`, and `threshold_public_key_hash` per `SPEC.md §5`.
-- [ ] Tests: membership proof verifies against the current root, non-membership proof verifies against the revocation root, stale proof rejected after revoke.
+- [x] `protocol-core::merkle`: sorted, de-duplicating binary Merkle tree over `Hash32`. Domain separation between leaves (`digest("merkle-leaf", &[leaf])`) and internal nodes (`digest("merkle-node", left, right)`) so a leaf hash cannot pose as a subtree root. `root_from_set`, `prove_membership`, `verify_membership`, `MerklePath`.
+- [x] `RegistryState::membership_root()` / `revocation_root()` derive from the current `BTreeSet`s on demand. The empty root is a distinct domain-separated constant.
+- [x] `AnonymousPostEnvelope::build` now takes `&RegistryState` and binds both `membership_root` and `revocation_root` into the public-inputs hash alongside `threshold_public_key_hash`. The envelope also stores the roots in the clear so off-chain verifiers can check freshness.
+- [x] Tests: empty-set root is canonical, root deterministic across insertion order, singleton root is the domain-separated leaf (not the raw leaf), tampered path is rejected, membership round trips for every leaf, registry roots change on register/revoke.
+
+Deferred for Phase 4 (RISC0):
+- [ ] Non-membership proofs against the revocation root. Encoding depends on the circuit shape (sparse Merkle tree vs. indexed Merkle tree); pick once the guest is being written so the in-circuit cost is the deciding factor.
+- [ ] Incremental root updates. Today both roots are recomputed from scratch on every read. Fine at starter scale; revisit if `registered` grows past a few thousand entries.
 
 ### Phase 4 — RISC0 guest + host
 

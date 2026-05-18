@@ -83,7 +83,7 @@ mod tests {
         let mut certs = Vec::new();
         for i in 0..2u8 {
             let content_id = digest("content", &[&[i]]);
-            let post = AnonymousPostEnvelope::build(&forum, &member, content_id, vec![i]);
+            let post = AnonymousPostEnvelope::build(&forum, &registry, &member, content_id, vec![i]);
             let reason = digest("reason", &[b"rule"]);
             let st = statement_for(
                 &forum,

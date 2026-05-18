@@ -10,6 +10,7 @@ use base64ct as _;
 pub mod cert;
 pub mod field;
 pub mod hash;
+pub mod merkle;
 pub mod shamir;
 pub mod state;
 pub mod threshold;
@@ -18,6 +19,7 @@ pub mod types;
 pub use cert::*;
 pub use field::*;
 pub use hash::*;
+pub use merkle::{empty_root, prove_membership as merkle_prove_membership, root_from_set, verify_membership as merkle_verify_membership, MerklePath};
 pub use shamir::*;
 pub use state::*;
 pub use threshold::{
