@@ -1,6 +1,7 @@
 Current placeholder audit after the latest build pass:
 
 - The Rust/Python/Lean protocol layers are implemented and tested locally.
+- Phase 2-9 closure is now guarded by `src/scripts/test_phase_closure.py` and tracked in GitHub issue #29.
 - The Basecamp app is no longer only a loose QML placeholder: it is an embeddable `ui_qml` module and can be packaged as an LGX with `src/scripts/package_basecamp.sh`.
 - The LEZ/SPEL registry remains the main placeholder boundary: `src/registry/lp0016-registry` is a tested Rust boundary plus hand-written IDL, but there is not yet a deployable `src/methods/guest/src/bin/lp0016_registry.rs` LEZ guest. `src/scripts/check_lez_runtime.py` now records the exact blockers instead of papering over them.
 - CU measurement remains blocked on the deployable LEZ guest, `lez-framework` migration, and the current local circuits cache mismatch (`v0.4.1` installed, `v0.4.2` expected by the probed `lez-framework` stack).

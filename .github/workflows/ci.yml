@@ -20,6 +20,7 @@ jobs:
       - run: python3 -m unittest scripts/test_basecamp_package.py
       - run: python3 -m unittest scripts/test_runtime_checks.py
       - run: python3 -m unittest scripts/test_success_criteria.py
+      - run: python3 -m unittest scripts/test_phase_closure.py
 
   rust:
     runs-on: ubuntu-latest

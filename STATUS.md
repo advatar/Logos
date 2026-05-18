@@ -9,6 +9,14 @@
 - No-Noir final blocker pass: https://github.com/advatar/Logos/issues/5
 - Success criteria proof tracker: https://github.com/advatar/Logos/issues/6
 - Per-criterion success issues: https://github.com/advatar/Logos/issues/7 through https://github.com/advatar/Logos/issues/28
+- Phase 2-9 closure verification: https://github.com/advatar/Logos/issues/29
+
+## Active Phase 2-9 Closure Verification Pass
+
+- [x] Verify every requested Phase 2-9 follow-up against source and tests.
+- [x] Add executable phase-closure tests/diagnostics for regressions: `src/scripts/test_phase_closure.py`.
+- [x] Update `STATUS.md` to distinguish completed local phase work from real external blockers.
+- [x] Run verification, commit, push, and update issue #29.
 
 ## Active Success Criteria Tracking Pass
 
@@ -63,7 +71,8 @@
 ## Current Verification
 
 - `cd src && python3 scripts/demo_e2e.py`: passed.
-- `cd src && python3 -m unittest scripts/test_protocol.py scripts/test_basecamp_package.py scripts/test_runtime_checks.py scripts/test_success_criteria.py`: passed, 27 tests.
+- `cd src && python3 -m unittest scripts/test_protocol.py scripts/test_basecamp_package.py scripts/test_runtime_checks.py scripts/test_success_criteria.py scripts/test_phase_closure.py`: passed, 36 tests.
+- `cd src && python3 -m unittest scripts/test_phase_closure.py`: passed, 9 tests.
 - `cd src && python3 -m json.tool docs/success_criteria.json`: passed.
 - `cd src && cargo build --workspace`: passed.
 - `cd src && cargo test --workspace`: passed, 49 Rust tests across workspace crates plus doc-tests.
@@ -74,6 +83,8 @@
 - `cd src && ./scripts/package_basecamp.sh /tmp/lp0016-basecamp`: passed and emitted `lp0016-anon-forum-demo.lgx`.
 - `cd src && ./scripts/measure_cu.sh`: passed script execution and emitted structured blocked JSON for `framework.kind = "default"`, missing `methods/guest/src/bin/lp0016_registry.rs`, and circuits `v0.4.1` versus expected `v0.4.2`.
 - `cd src && python3 scripts/check_lez_runtime.py && python3 scripts/check_basecamp_inspector.py`: passed script execution; both intentionally reported blocked JSON for missing external runtime pieces.
+- `cd src && cargo risczero --version`: passed, `cargo-risczero 3.0.5`.
+- `cd src && ~/.cargo/bin/rzup --version && ~/.cargo/bin/r0vm --version`: passed, `rzup 0.5.1` and `risc0-r0vm 3.0.5`.
 - `cd src && ~/.cargo/bin/logos-scaffold build idl`: ran; skipped because scaffold framework kind is `default`.
 - `cd src && ~/.cargo/bin/logos-scaffold deploy lp0016_registry --json`: failed with the expected current blocker, missing `methods/guest/src/bin`.
 - `cd src && ~/.cargo/bin/logos-scaffold doctor`: reported 13 PASS, 4 WARN, 0 FAIL with localnet not running; remaining WARNs are LEZ cache working tree dirty plus sequencer/localnet reachability.
