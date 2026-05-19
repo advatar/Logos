@@ -47,7 +47,7 @@ Submission evidence:
 - Basecamp clean-shell artifact diagnostic: `cd src && python3 scripts/check_basecamp_inspector.py --pretty`
 - Basecamp inspector verification, when an inspector-enabled app is available:
   `cd src && python3 scripts/check_basecamp_inspector.py --run-click-through --pretty`
-- Narrated demo video: `submission/lp0016-demo.mp4`
+- Narrated demo video: [submission/lp0016-demo.mp4](submission/lp0016-demo.mp4)
 - Video generator: `cd src && python3 scripts/make_submission_video.py`
 - Evidence JSON: `src/dist/submission/evidence.json`
 - Localnet evidence JSON: `src/dist/submission/localnet_evidence.json`

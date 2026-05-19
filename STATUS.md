@@ -20,6 +20,13 @@
 - Narrated submission video generation: https://github.com/advatar/Logos/issues/37
 - Clean-shell Basecamp runtime artifacts: https://github.com/advatar/Logos/issues/38
 - Repository MIT license update: https://github.com/advatar/Logos/issues/39
+- README inline submission video link: https://github.com/advatar/Logos/issues/40
+
+## Active README Inline Video Link Pass
+
+- [x] Locate the README submission video reference.
+- [x] Change the plain video path into a clickable inline Markdown link.
+- [x] Run focused local verification, commit, push, and update issue #40.
 
 ## Active Repository MIT License Pass
 
@@ -159,6 +166,7 @@
 
 ## Current Verification
 
+- `cd src && python3 -m unittest scripts.test_runtime_checks.RuntimeCheckTests.test_submission_video_is_documented_and_reproducible && cargo build --workspace`: passed.
 - `cd src && cargo metadata --no-deps --format-version 1 >/tmp/logos-license-metadata.json && cargo build --workspace`: passed.
 - `cd src && cargo check --manifest-path zk/membership-host/Cargo.toml`: passed.
 - `cd src && rustup run stable cargo check --manifest-path zk/membership-guest/Cargo.toml && cargo +stable check --manifest-path methods/guest/Cargo.toml`: passed.
