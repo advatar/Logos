@@ -53,7 +53,8 @@ The dominant cost is expected to be the Ristretto255 point multiplications insid
 - missing `logos-scaffold`;
 - missing LEZ `sequencer_service` / `wallet` binaries;
 - localnet not ready;
-- no deployable `methods/guest/src/bin/lp0016_registry.rs` guest yet;
-- localnet ready but CU capture still blocked on the deploy/invoke reporting path.
+- missing deployable `methods/guest/src/bin/lp0016_registry.rs` source;
+- missing built RISC0 guest binary at `methods/target/riscv32im-risc0-zkvm-elf/docker/lp0016_registry.bin`;
+- localnet ready and deploy submitted, but CU capture still blocked on custom invoke/reporting for `register_member` and `slash_member`.
 
-The current repository has the LEZ binaries after `logos-scaffold setup`, but it still reports `{"status":"blocked","measurement":"lez_compute_units",...}` until the registry has a deployable LEZ guest and program IDs for devnet/testnet are recorded.
+The current repository has the LEZ binaries after `logos-scaffold setup`, a deployable `lez-framework` guest source, and a locally built guest binary. The final local pass submitted the registry program to a local sequencer and recorded the local image ID in `registry/program_ids/localnet.txt`. CU numbers remain pending until the current scaffold/wallet exposes a custom invoke path and CU report for `register_member` and `slash_member`; devnet/testnet IDs remain pending live network deployment.

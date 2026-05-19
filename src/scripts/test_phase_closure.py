@@ -58,18 +58,24 @@ class PhaseClosureTests(unittest.TestCase):
         self.assertIn("cargo +stable test --features risc0", demo)
         self.assertNotIn("MockZkReceipt::", protocol_types)
 
-    def test_phase_5_spel_macro_gap_is_explicit_until_lez_framework_migration(self):
+    def test_phase_5_lez_framework_guest_and_spel_boundary_are_explicit(self):
         registry = read("registry/lp0016-registry/src/lib.rs")
         registry_manifest = read("registry/lp0016-registry/Cargo.toml")
         scaffold = read("scaffold.toml")
+        guest = read("methods/guest/src/bin/lp0016_registry.rs")
         status = (REPO_ROOT / "STATUS.md").read_text()
         repo = (REPO_ROOT / "REPO.md").read_text()
 
         self.assertIn("// #[lez_program", registry)
         self.assertIn("spel = []", registry_manifest)
-        self.assertIn('kind = "default"', scaffold)
-        self.assertIn("Real SPEL macro flip", status)
-        self.assertIn("LEZ/SPEL registry remains the main placeholder boundary", repo)
+        self.assertIn('kind = "lez-framework"', scaffold)
+        self.assertIn("#[lez_program]", guest)
+        self.assertIn("pub fn create_forum", guest)
+        self.assertIn("pub fn register_member", guest)
+        self.assertIn("pub fn slash_member", guest)
+        self.assertIn("deployable `lez-framework` guest", status)
+        self.assertIn("CU measurement for `register_member` / `slash_member`", status)
+        self.assertIn("deployable LEZ-framework guest", repo)
 
     def test_phase_6_storage_namespaces_and_retry_queue_are_in_sdk(self):
         sdk = read("crates/moderation-sdk/src/lib.rs")
@@ -132,11 +138,14 @@ class PhaseClosureTests(unittest.TestCase):
     def test_phase_9_ci_risc0_and_cu_readiness_entries_exist(self):
         ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text()
         measure = read("scripts/measure_cu.sh")
+        local_gate = read("scripts/local_submission_gate.py")
 
         self.assertIn("risc0-feature", ci)
         self.assertIn("--features risc0", ci)
         self.assertIn("./scripts/measure_cu.sh", ci)
         self.assertIn("check_lez_runtime.py", measure)
+        self.assertIn("local integration evidence", local_gate)
+        self.assertIn("GitHub Actions is intentionally not required", local_gate)
 
     def test_external_runtime_blockers_are_structured_and_traceable(self):
         for script, target in [

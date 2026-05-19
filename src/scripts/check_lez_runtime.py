@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 from pathlib import Path
 
@@ -17,6 +18,10 @@ DEFAULT_EXPECTED_CIRCUITS_VERSION = "v0.4.2"
 
 
 def command_path(name: str) -> str | None:
+    env_name = name.upper().replace("-", "_")
+    env_value = os.environ.get(env_name)
+    if env_value and os.access(env_value, os.X_OK):
+        return env_value
     found = shutil.which(name)
     if found:
         return found
@@ -77,7 +82,7 @@ def circuits_version(circuits_dir: Path) -> str | None:
     return version_file.read_text().strip()
 
 
-def localnet_ready(logos_scaffold: str | None) -> bool:
+def scaffold_localnet_ready(logos_scaffold: str | None) -> bool:
     if not logos_scaffold:
         return False
     try:
@@ -93,6 +98,26 @@ def localnet_ready(logos_scaffold: str | None) -> bool:
     except (OSError, subprocess.TimeoutExpired):
         return False
     return '"ready": true' in proc.stdout
+
+
+def tcp_listener_ready(port: int | None) -> bool:
+    if port is None:
+        return False
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=1):
+            return True
+    except OSError:
+        return False
+
+
+def configured_localnet_port(config: dict) -> int | None:
+    raw = config.get("localnet", {}).get("port")
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 def build_report() -> dict:
@@ -112,8 +137,10 @@ def build_report() -> dict:
     logos_scaffold = command_path("logos-scaffold")
     cargo_risczero = command_path("cargo-risczero")
     guest = ROOT / "methods" / "guest" / "src" / "bin" / "lp0016_registry.rs"
+    guest_binary = ROOT / "methods" / "target" / "riscv32im-risc0-zkvm-elf" / "docker" / "lp0016_registry.bin"
     sequencer = lez_path / "target" / "release" / "sequencer_service" if lez_path else None
     wallet = lez_path / "target" / "release" / "wallet" if lez_path else None
+    localnet_port = configured_localnet_port(config)
 
     blockers: list[dict[str, str]] = []
     if not logos_scaffold:
@@ -173,7 +200,9 @@ def build_report() -> dict:
             }
         )
 
-    ready = not blockers and localnet_ready(logos_scaffold)
+    scaffold_ready = scaffold_localnet_ready(logos_scaffold)
+    tcp_ready = tcp_listener_ready(localnet_port)
+    ready = not blockers and (scaffold_ready or tcp_ready)
     if not blockers and not ready:
         blockers.append(
             {
@@ -194,14 +223,18 @@ def build_report() -> dict:
         "expected_circuits_version": expected_version,
         "actual_circuits_version": actual_version,
         "guest_source": str(guest),
+        "guest_binary": str(guest_binary),
         "lez_path": str(lez_path) if lez_path else None,
+        "localnet_port": localnet_port,
+        "scaffold_localnet_ready": scaffold_ready,
+        "tcp_listener_ready": tcp_ready,
         "localnet_ready": ready,
         "blockers": blockers,
         "ready_commands": [
             "logos-scaffold localnet start",
-            "logos-scaffold deploy lp0016_registry --json",
-            "logos-scaffold invoke register_member --json",
-            "logos-scaffold invoke slash_member --json",
+            "cd methods && cargo risczero build --manifest-path guest/Cargo.toml",
+            "logos-scaffold deploy lp0016_registry --program-path methods/target/riscv32im-risc0-zkvm-elf/docker/lp0016_registry.bin --json",
+            "scripts/measure_cu.sh",
         ],
     }
 

@@ -14,6 +14,34 @@ ROOT = Path(__file__).resolve().parents[1]
 APP_DIR = ROOT / "app" / "basecamp-forum"
 
 
+def cache_roots() -> list[Path]:
+    roots: list[Path] = []
+    explicit = os.environ.get("LOGOS_BASECAMP_CACHE")
+    if explicit:
+        roots.append(Path(explicit))
+    xdg = os.environ.get("XDG_CACHE_HOME")
+    if xdg:
+        roots.append(Path(xdg) / "logos-basecamp")
+    roots.extend(
+        [
+            ROOT / ".scaffold" / "cache" / "basecamp",
+            Path.home() / ".cache" / "logos-basecamp",
+            Path.home() / "Library" / "Caches" / "logos-basecamp",
+        ]
+    )
+    # Legacy scratch paths from early local build passes. These remain last so
+    # durable env/cache locations win when present.
+    roots.extend([Path("/tmp/logos-basecamp-inspect"), Path("/tmp")])
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for root in roots:
+        expanded = root.expanduser()
+        if expanded not in seen:
+            seen.add(expanded)
+            unique.append(expanded)
+    return unique
+
+
 def first_existing(paths: list[Path]) -> Path | None:
     for path in paths:
         if path.exists():
@@ -47,14 +75,23 @@ def first_design_system_qml(paths: list[Path]) -> Path | None:
 
 def build_report() -> dict:
     basecamp_dir = Path(
-        os.environ.get("LOGOS_BASECAMP_DIR", "/tmp/logos-basecamp-inspect")
+        os.environ.get("LOGOS_BASECAMP_DIR", str(cache_roots()[0] / "logos-basecamp"))
     )
+    roots = cache_roots()
     qt_mcp_value = os.environ.get("LOGOS_QT_MCP")
     qt_mcp_candidates = [
         Path(qt_mcp_value) if qt_mcp_value else None,
         basecamp_dir / "result-mcp",
-        Path("/tmp/logos-qt-mcp-inspect"),
     ]
+    for root in roots:
+        qt_mcp_candidates.extend(
+            [
+                root / "logos-qt-mcp",
+                root / "qt-mcp",
+                root / "result-mcp",
+                root / "logos-basecamp" / "result-mcp",
+            ]
+        )
     qt_mcp = first_qt_mcp([path for path in qt_mcp_candidates if path is not None])
     if qt_mcp is None:
         qt_mcp = Path(qt_mcp_value) if qt_mcp_value else basecamp_dir / "result-mcp"
@@ -64,11 +101,20 @@ def build_report() -> dict:
         Path(app_binary_value) if app_binary_value else None,
         basecamp_dir / "result" / "bin" / "LogosBasecamp",
         basecamp_dir / "result" / "LogosBasecamp.app" / "Contents" / "MacOS" / "LogosBasecamp",
-        Path("/tmp/logos-basecamp-build/LogosBasecamp"),
-        Path("/tmp/logos-basecamp-runtime/LogosBasecamp.app/Contents/MacOS/LogosBasecamp"),
         Path("/Applications/LogosBasecamp.app/Contents/MacOS/LogosBasecamp"),
         Path.home() / "Applications" / "LogosBasecamp.app" / "Contents" / "MacOS" / "LogosBasecamp",
     ]
+    for root in roots:
+        app_binary_candidates.extend(
+            [
+                root / "LogosBasecamp",
+                root / "logos-basecamp" / "LogosBasecamp",
+                root / "logos-basecamp-build" / "LogosBasecamp",
+                root / "logos-basecamp-runtime" / "LogosBasecamp.app" / "Contents" / "MacOS" / "LogosBasecamp",
+                root / "logos-basecamp" / "result" / "bin" / "LogosBasecamp",
+                root / "logos-basecamp" / "result" / "LogosBasecamp.app" / "Contents" / "MacOS" / "LogosBasecamp",
+            ]
+        )
     app_binary = first_executable([path for path in app_binary_candidates if path is not None])
     if app_binary is None and app_binary_value:
         app_binary = Path(app_binary_value)
@@ -76,7 +122,10 @@ def build_report() -> dict:
     packaged_app = first_existing(
         [
             ROOT / "dist" / "basecamp" / "lp0016-anon-forum-demo.lgx",
-            Path("/tmp/lp0016-basecamp/lp0016-anon-forum-demo.lgx"),
+            *[
+                root / "basecamp-package" / "lp0016-anon-forum-demo.lgx"
+                for root in roots
+            ],
         ]
     )
     design_system_value = os.environ.get("LOGOS_DESIGN_SYSTEM_ROOT")
@@ -84,9 +133,16 @@ def build_report() -> dict:
         Path(design_system_value) if design_system_value else None,
         Path(design_system_value) / "src" / "qml" if design_system_value else None,
         Path(design_system_value) / "lib" if design_system_value else None,
-        basecamp_dir.parent / "logos-design-system" / "src" / "qml",
-        Path("/tmp/logos-design-system/src/qml"),
     ]
+    for root in roots:
+        design_system_candidates.extend(
+            [
+                root / "logos-design-system" / "src" / "qml",
+                root / "logos-design-system" / "lib",
+                root / "design-system" / "src" / "qml",
+                root / "design-system",
+            ]
+        )
     design_system_qml = first_design_system_qml(
         [path for path in design_system_candidates if path is not None]
     )
@@ -157,6 +213,7 @@ def build_report() -> dict:
     return {
         "status": "ready" if not blockers else "blocked",
         "target": "basecamp_qml_inspector",
+        "cache_roots": [str(root) for root in roots],
         "basecamp_dir": str(basecamp_dir),
         "logos_qt_mcp": str(qt_mcp),
         "basecamp_app": str(app_binary) if app_binary else None,
@@ -166,8 +223,8 @@ def build_report() -> dict:
         "design_system_qml": str(design_system_qml) if design_system_qml else None,
         "blockers": blockers,
         "ready_commands": [
-            "scripts/package_basecamp.sh /tmp/lp0016-basecamp",
-            "LOGOS_QT_MCP=/tmp/logos-qt-mcp-inspect LOGOS_BASECAMP_APP=/tmp/logos-basecamp-build/LogosBasecamp QML2_IMPORT_PATH=/tmp/logos-design-system/src/qml QML_IMPORT_PATH=/tmp/logos-design-system/src/qml node app/basecamp-forum/ui-tests.mjs --ci /tmp/logos-basecamp-build/LogosBasecamp",
+            "scripts/package_basecamp.sh dist/basecamp",
+            "LOGOS_BASECAMP_CACHE=$HOME/.cache/logos-basecamp LOGOS_QT_MCP=$HOME/.cache/logos-basecamp/logos-qt-mcp LOGOS_BASECAMP_APP=$HOME/.cache/logos-basecamp/LogosBasecamp LOGOS_DESIGN_SYSTEM_ROOT=$HOME/.cache/logos-basecamp/logos-design-system node app/basecamp-forum/ui-tests.mjs --ci $HOME/.cache/logos-basecamp/LogosBasecamp",
         ],
     }
 

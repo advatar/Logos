@@ -272,12 +272,16 @@ class SuccessCriteriaMatrixTests(unittest.TestCase):
         ]:
             self.assertIn(phrase, readme)
 
-    def test_ci_runs_success_criteria_and_runtime_checks(self):
+    def test_local_submission_gate_runs_success_criteria_and_runtime_checks(self):
         ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text()
+        gate = (ROOT / "scripts" / "local_submission_gate.py").read_text()
 
         self.assertIn("test_success_criteria.py", ci)
         self.assertIn("test_runtime_checks.py", ci)
         self.assertIn("measure_cu.sh", ci)
+        self.assertIn("test_success_criteria.py", gate)
+        self.assertIn("test_runtime_checks.py", gate)
+        self.assertIn("measure_cu.sh", gate)
 
     def test_runtime_diagnostics_are_structured(self):
         for script, target in [

@@ -7,8 +7,26 @@ OUT_DIR="${1:-$ROOT/dist/basecamp}"
 PACKAGE_NAME="lp0016-anon-forum-demo.lgx"
 PLATFORMS="${BASECAMP_PLATFORMS:-darwin-arm64 darwin-x86_64 linux-aarch64 linux-x86_64}"
 LGX_BIN="${LGX_BIN:-}"
-if [[ -z "$LGX_BIN" && -x /tmp/logos-package-install/bin/lgx ]]; then
-  LGX_BIN="/tmp/logos-package-install/bin/lgx"
+if [[ -z "$LGX_BIN" ]]; then
+  cache_candidates=()
+  if [[ -n "${LOGOS_BASECAMP_CACHE:-}" ]]; then
+    cache_candidates+=("$LOGOS_BASECAMP_CACHE/package/bin/lgx" "$LOGOS_BASECAMP_CACHE/logos-package/bin/lgx")
+  fi
+  if [[ -n "${XDG_CACHE_HOME:-}" ]]; then
+    cache_candidates+=("$XDG_CACHE_HOME/logos-basecamp/package/bin/lgx")
+  fi
+  cache_candidates+=(
+    "$ROOT/.scaffold/cache/basecamp/package/bin/lgx"
+    "$HOME/.cache/logos-basecamp/package/bin/lgx"
+    "$HOME/Library/Caches/logos-basecamp/package/bin/lgx"
+    "/tmp/logos-package-install/bin/lgx"
+  )
+  for candidate in "${cache_candidates[@]}"; do
+    if [[ -x "$candidate" ]]; then
+      LGX_BIN="$candidate"
+      break
+    fi
+  done
 fi
 
 mkdir -p "$OUT_DIR"

@@ -25,12 +25,14 @@ cargo run -p registry-sim
 
 ## Security status
 
-This is not a final prize submission. The repo fixes the previously underspecified engineering decisions and implements the core protocol state machine, but the following components are still development adapters:
+This is a local-submission candidate. GitHub Actions is not used as acceptance evidence because the repository's hosted Actions jobs are blocked before startup by account billing/spending limits. Use `scripts/local_submission_gate.py` for the reproducible local integration gate.
+
+The repo fixes the previously underspecified engineering decisions and implements the core protocol state machine, but the following components are still development adapters:
 
 - `ZkReceipt::Mock` is used by local tests until the external RISC0 proving toolchain is installed.
 - threshold encryption is represented as a test/development oracle only in the dependency-free Python simulator; Rust uses threshold ElGamal with DLEQ partials.
-- SPEL/LEZ deployment still requires a deployable `methods/guest/src/bin/lp0016_registry.rs` guest and migration to the `lez-framework` scaffold shape. `scripts/check_lez_runtime.py` reports the exact local blockers, including the current circuits-version mismatch.
-- Basecamp has an embeddable `ui_qml` package harness, a Rust core-module bridge, and `app/basecamp-forum/ui-tests.mjs` for QML inspector click-through. Running the click-through still needs `logos-qt-mcp` and a built Basecamp app.
+- SPEL/LEZ now has a deployable `methods/guest/src/bin/lp0016_registry.rs` guest under the `lez-framework` scaffold shape. Local deployment submission succeeds when a local sequencer is listening, and `registry/program_ids/localnet.txt` records the local guest image ID. The current scaffold/wallet still does not expose custom program invoke/CU reporting for `register_member` and `slash_member`; `scripts/measure_cu.sh` records that exact remaining runtime gap.
+- Basecamp has an embeddable `ui_qml` package harness, a Rust core-module bridge, and `app/basecamp-forum/ui-tests.mjs` for QML inspector click-through. Running the click-through still needs `logos-qt-mcp`, a built Basecamp app, and design-system QML available via `LOGOS_BASECAMP_CACHE` or explicit env vars.
 
 The production path is documented in `SPEC.md` and `docs/protocol.md`.
 
@@ -51,11 +53,11 @@ app/basecamp-forum         Basecamp QML flow and core-module bridge
 
 ## Immediate next steps for the developer
 
-1. Add the deployable LEZ guest wrapper for `lp0016_registry` or migrate the registry crate to the `lez-framework` scaffold shape.
-2. Capture `register_member` / `slash_member` CU numbers after deploy/invoke reporting is available.
-3. Replace local mock post receipts with real RISC0 receipts once the guest image build is available; the host, SDK, and Basecamp core module now accept serialized receipt bytes.
-4. Wire `moderation-sdk` storage and messaging traits to Logos Storage/Delivery.
-5. Run the packaged Basecamp LGX through the QML inspector harness.
+1. Run `scripts/local_submission_gate.py` and keep `dist/submission/evidence.json` with the submission materials.
+2. Capture `register_member` / `slash_member` CU numbers once the current scaffold/wallet exposes custom program invocation or the generated LEZ client path is available.
+3. Replace local mock post receipts with real app-flow RISC0 receipts; the host, SDK, and Basecamp core module already accept serialized receipt bytes.
+4. Wire `moderation-sdk` storage and messaging traits to live Logos Storage/Delivery endpoints when those services are available.
+5. Run the packaged Basecamp LGX through the QML inspector harness with durable artifact paths.
 
 ## Success criteria tracking
 
@@ -70,13 +72,15 @@ RISC0_DEV_MODE=0 scripts/demo_e2e.sh
 scripts/package_basecamp.sh /tmp/lp0016-basecamp
 scripts/check_lez_runtime.py
 scripts/check_basecamp_inspector.py
+scripts/local_submission_gate.py
 ```
 
 The Basecamp flow covers forum creation, register, posting, moderating,
 history/certificate review, and slash. LEZ program IDs are not published yet;
-the required future artifacts are `registry/program_ids/devnet.txt` and
-`registry/program_ids/testnet.txt`, which become available after the
-deployable `lez-framework` guest is built and deployed.
+`registry/program_ids/localnet.txt` records the locally built/deployed guest
+image ID. The required future artifacts are `registry/program_ids/devnet.txt`
+and `registry/program_ids/testnet.txt`, which become available after testnet
+deployment.
 
 ## License
 

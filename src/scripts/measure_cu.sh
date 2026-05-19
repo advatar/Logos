@@ -50,6 +50,7 @@ fi
 
 SEQUENCER_BIN="$LEZ_PATH/target/release/sequencer_service"
 WALLET_BIN="$LEZ_PATH/target/release/wallet"
+GUEST_BIN="$ROOT/methods/target/riscv32im-risc0-zkvm-elf/docker/lp0016_registry.bin"
 
 if [[ ! -x "$SEQUENCER_BIN" || ! -x "$WALLET_BIN" ]]; then
   cat <<JSON
@@ -64,21 +65,41 @@ if [[ -n "$RUNTIME_CHECK" ]] && printf '%s\n' "$RUNTIME_CHECK" | grep -q '"statu
   exit 0
 fi
 
-if [[ ! -d "$ROOT/methods/guest/src/bin" ]]; then
+if [[ ! -f "$ROOT/methods/guest/src/bin/lp0016_registry.rs" ]]; then
   cat <<JSON
 {"status":"blocked","measurement":"lez_compute_units","reason":"LEZ runtime binaries are available, but lp0016_registry has no deployable LEZ guest under methods/guest/src/bin yet","available_artifacts":["$SEQUENCER_BIN","$WALLET_BIN"],"required_artifacts":["methods/guest/src/bin/lp0016_registry.rs","registry/program_ids/devnet.txt","registry/program_ids/testnet.txt","docs/performance.md CU table"]}
 JSON
   exit 0
 fi
 
-LOCALNET_STATUS="$("$LOGOS_SCAFFOLD" localnet status --json 2>/dev/null || true)"
-if ! printf '%s\n' "$LOCALNET_STATUS" | grep -q '"ready": true'; then
+if [[ ! -f "$GUEST_BIN" ]]; then
   cat <<JSON
-{"status":"blocked","measurement":"lez_compute_units","reason":"LEZ binaries are available, but the localnet is not ready","available_artifacts":["$SEQUENCER_BIN","$WALLET_BIN"],"required_commands":["logos-scaffold localnet start","logos-scaffold doctor","logos-scaffold deploy lp0016_registry --json"]}
+{"status":"blocked","measurement":"lez_compute_units","reason":"LEZ guest source exists, but the deployable RISC0 guest binary has not been built","available_artifacts":["$SEQUENCER_BIN","$WALLET_BIN","$ROOT/methods/guest/src/bin/lp0016_registry.rs"],"required_commands":["cd methods && cargo risczero build --manifest-path guest/Cargo.toml"],"required_artifacts":["$GUEST_BIN"]}
 JSON
   exit 0
 fi
 
-cat <<'JSON'
-{"status":"blocked","measurement":"lez_compute_units","reason":"LEZ localnet is ready, but compute-unit capture still needs a deployable lp0016_registry guest and scaffold invoke/CU reporting path","required_commands":["logos-scaffold deploy lp0016_registry --json","logos-scaffold invoke register_member","logos-scaffold invoke slash_member"],"required_artifacts":["registry/program_ids/devnet.txt","registry/program_ids/testnet.txt","docs/performance.md CU table"]}
-JSON
+DEPLOY_OUTPUT="$("$LOGOS_SCAFFOLD" deploy lp0016_registry --program-path "$GUEST_BIN" --json 2>&1 || true)"
+python3 - "$DEPLOY_OUTPUT" "$GUEST_BIN" <<'PY'
+import json
+import sys
+
+deploy_output, guest_bin = sys.argv[1], sys.argv[2]
+print(json.dumps({
+    "status": "blocked",
+    "measurement": "lez_compute_units",
+    "deploy_status": "submitted" if "\"status\":\"submitted\"" in deploy_output or '"status":"submitted"' in deploy_output else "unknown",
+    "guest_binary": guest_bin,
+    "deploy_output": deploy_output,
+    "reason": "LP-0016 registry deploy submission works locally, but current scaffold/wallet exposes no custom program invoke command or CU report for register_member/slash_member.",
+    "required_commands": [
+        "wallet custom invoke or generated LEZ client call for register_member",
+        "wallet custom invoke or generated LEZ client call for slash_member"
+    ],
+    "required_artifacts": [
+        "registry/program_ids/devnet.txt",
+        "registry/program_ids/testnet.txt",
+        "docs/performance.md CU table"
+    ]
+}, sort_keys=True))
+PY

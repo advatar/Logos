@@ -3,10 +3,11 @@ Current placeholder audit after the latest build pass:
 - The Rust/Python/Lean protocol layers are implemented and tested locally.
 - Phase 2-9 closure is now guarded by `src/scripts/test_phase_closure.py` and tracked in GitHub issue #29.
 - The Basecamp app is no longer only a loose QML placeholder: it is an embeddable `ui_qml` module and can be packaged as an LGX with `src/scripts/package_basecamp.sh`.
-- The LEZ/SPEL registry remains the main placeholder boundary: `src/registry/lp0016-registry` is a tested Rust boundary plus hand-written IDL, but there is not yet a deployable `src/methods/guest/src/bin/lp0016_registry.rs` LEZ guest. `src/scripts/check_lez_runtime.py` now records the exact blockers instead of papering over them.
-- CU measurement remains blocked on the deployable LEZ guest, `lez-framework` migration, and the current local circuits cache mismatch (`v0.4.1` installed, `v0.4.2` expected by the probed `lez-framework` stack).
+- The LEZ/SPEL registry now has a deployable LEZ-framework guest at `src/methods/guest/src/bin/lp0016_registry.rs`, a generated IDL path through `logos-scaffold build idl`, and a local RISC0 guest binary build. `src/scripts/check_lez_runtime.py` records readiness from either scaffold localnet status or a live local TCP listener.
+- CU measurement is narrowed to the current scaffold/wallet custom invocation gap: local deploy submission works, but `register_member` / `slash_member` CU capture still needs a generated client or wallet command that can invoke custom deployed programs and report cost.
 - Full app-flow RISC0 proof generation is still open, but receipt byte wiring is no longer only a placeholder: `ZkReceipt::Risc0`, the SDK, the RISC0 host, and the Basecamp core module now accept serialized receipt bytes.
-- Basecamp click-through is no longer only a manual note: `src/app/basecamp-forum/ui-tests.mjs` defines the QML inspector flow, and `src/scripts/check_basecamp_inspector.py` records missing `logos-qt-mcp` / app-binary prerequisites.
+- Basecamp click-through is no longer only a manual note: `src/app/basecamp-forum/ui-tests.mjs` defines the QML inspector flow, and `src/scripts/check_basecamp_inspector.py` records missing `logos-qt-mcp` / app-binary prerequisites using durable cache/env paths before legacy `/tmp` fallbacks.
+- The local hackathon evidence gate is `src/scripts/local_submission_gate.py`; GitHub Actions is intentionally not used as the acceptance path because hosted jobs are blocked before startup by account billing/spending limits.
 - LP-0016 success criteria are now tracked one-for-one in GitHub issues #7-#28 and in `src/docs/success_criteria.json`; `src/scripts/test_success_criteria.py` enforces issue/proof coverage and local behavioral proofs.
 
 Delivered a starter repository here:

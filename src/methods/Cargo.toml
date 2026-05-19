@@ -1,0 +1,36 @@
+[package]
+name = "lp0016_registry_methods"
+version = "0.1.0"
+edition = "2024"
+license = { workspace = true }
+
+[workspace.package]
+license = "MIT OR Apache-2.0"
+
+[workspace]
+resolver = "3"
+members = [
+  ".",
+  "guest",
+]
+
+[workspace.dependencies]
+nssa_core = { git = "https://github.com/logos-blockchain/lssa.git", rev = "767b5afd388c7981bcdf6f5b5c80159607e07e5b" }
+risc0-zkvm = { version = "3.0.5", features = ["std"] }
+risc0-build = "3.0.5"
+lez-framework = { git = "https://github.com/jimmy-claw/lez-framework.git", rev = "1e146970d2bba861a32fd3a8b4e13b1e6ff4114d" }
+lez-framework-core = { git = "https://github.com/jimmy-claw/lez-framework.git", rev = "1e146970d2bba861a32fd3a8b4e13b1e6ff4114d" }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+sha2 = "0.10.9"
+hex = "0.4.3"
+borsh = { version = "1.5", features = ["derive"] }
+# RISC0's current guest-builder image uses rustc 1.88.0-dev. ruint 1.18
+# requires rustc 1.90, so pin the latest 1.88-compatible release here.
+ruint = "=1.17.2"
+
+[build-dependencies]
+risc0-build.workspace = true
+
+[package.metadata.risc0]
+methods = ["guest"]

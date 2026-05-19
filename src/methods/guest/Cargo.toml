@@ -1,0 +1,22 @@
+[package]
+name = "lp0016_registry_programs"
+version = "0.1.0"
+edition = "2024"
+license = { workspace = true }
+
+[dependencies]
+nssa_core.workspace = true
+risc0-zkvm.workspace = true
+lez-framework.workspace = true
+lez-framework-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hex.workspace = true
+borsh.workspace = true
+ruint.workspace = true
+
+[[bin]]
+name = "lp0016_registry"
+path = "src/bin/lp0016_registry.rs"
+test = false

@@ -8,6 +8,7 @@ Verified local commands:
 
 ```bash
 cd src
+scripts/local_submission_gate.py
 python3 scripts/demo_e2e.py
 python3 -m unittest scripts/test_protocol.py
 cargo build --workspace
@@ -15,3 +16,7 @@ cargo test --workspace
 cargo run -p registry-sim
 cd lean && lake build
 ```
+
+GitHub Actions is not the acceptance gate for this repository because hosted
+jobs are blocked before startup by account billing/spending limits. Use the
+local submission gate and `src/docs/submission.md` for hackathon evidence.

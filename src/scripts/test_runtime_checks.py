@@ -31,6 +31,8 @@ class RuntimeCheckTests(unittest.TestCase):
 
         self.assertIn(report["status"], {"ready", "blocked"})
         self.assertEqual(report["target"], "basecamp_qml_inspector")
+        self.assertIn("cache_roots", report)
+        self.assertTrue(any(".cache/logos-basecamp" in root for root in report["cache_roots"]))
         self.assertIsInstance(report["blockers"], list)
         self.assertTrue(report["lp0016_ui_test"].endswith("ui-tests.mjs"))
 
@@ -69,6 +71,15 @@ class RuntimeCheckTests(unittest.TestCase):
         self.assertNotIn("basecamp_app", blocker_ids)
         self.assertNotIn("nix", blocker_ids)
         self.assertNotIn("logos_design_system", blocker_ids)
+
+    def test_local_submission_gate_exists_and_records_local_policy(self):
+        gate = ROOT / "scripts" / "local_submission_gate.py"
+        text = gate.read_text()
+
+        self.assertIn("local integration evidence", text)
+        self.assertIn("strict-runtime", text)
+        self.assertIn("scripts/check_lez_runtime.py", text)
+        self.assertIn("scripts/check_basecamp_inspector.py", text)
 
 
 if __name__ == "__main__":

@@ -245,6 +245,96 @@ mod tests {
         ModeratorSecret,
     };
 
+    const LP0016_REGISTRY_IDL_JSON: &str = r#"{
+  "program_name": "lp0016_registry",
+  "version": "0.1.0",
+  "description": "LP-0016 anonymous forum registry: forum lifecycle, member registration, slash-based revocation.",
+  "notes": [
+    "Hand-written reference IDL. The logos-scaffold hidden IDL print test emits this same shape for local submission builds.",
+    "Account state is hashed with the canonical lp0016 transcript framing (see protocol-core::digest). Never deserialize on-chain bytes from serde_json."
+  ],
+  "instructions": [
+    {
+      "name": "create_forum",
+      "doc": "Initialise a new forum state account.",
+      "args": [
+        {"name": "config", "type": "ForumConfig"},
+        {"name": "stake_policy", "type": "StakePolicy"}
+      ],
+      "writes": ["ForumState"],
+      "reads": []
+    },
+    {
+      "name": "register_member",
+      "doc": "Insert a member commitment into the forum's membership tree.",
+      "args": [
+        {"name": "forum_id", "type": "Hash32"},
+        {"name": "member_commitment", "type": "Hash32"},
+        {"name": "stake_amount", "type": "u64"},
+        {"name": "registered_at", "type": "u64"}
+      ],
+      "writes": ["ForumState", "MemberRecord"],
+      "reads": []
+    },
+    {
+      "name": "slash_member",
+      "doc": "Verify a slash bundle and revoke the reconstructed commitment.",
+      "args": [
+        {"name": "forum_id", "type": "Hash32"},
+        {"name": "certificates", "type": "Vec<ModerationCertificate>"},
+        {"name": "slashed_at", "type": "u64"}
+      ],
+      "writes": ["ForumState", "RevocationRecord"],
+      "reads": ["MemberRecord"],
+      "returns": "Hash32"
+    }
+  ],
+  "accounts": [
+    {
+      "name": "ForumState",
+      "key": "forum_id",
+      "fields": [
+        {"name": "config", "type": "ForumConfig"},
+        {"name": "stake_policy", "type": "StakePolicy"},
+        {"name": "membership_root", "type": "Hash32"},
+        {"name": "revocation_root", "type": "Hash32"}
+      ]
+    },
+    {
+      "name": "MemberRecord",
+      "key": "(forum_id, member_commitment)",
+      "fields": [
+        {"name": "forum_id", "type": "Hash32"},
+        {"name": "member_commitment", "type": "Hash32"},
+        {"name": "stake_amount", "type": "u64"},
+        {"name": "registered_at", "type": "u64"}
+      ]
+    },
+    {
+      "name": "RevocationRecord",
+      "key": "(forum_id, member_commitment)",
+      "fields": [
+        {"name": "forum_id", "type": "Hash32"},
+        {"name": "member_commitment", "type": "Hash32"},
+        {"name": "slashed_at", "type": "u64"},
+        {"name": "slash_bundle_hash", "type": "Hash32"}
+      ],
+      "immutable_after_create": true
+    },
+    {
+      "name": "StakePolicy",
+      "fields": [
+        {"name": "minimum_stake", "type": "u64"}
+      ]
+    }
+  ],
+  "shared_types": {
+    "Hash32": "32-byte SHA-256 digest of the canonical transcript",
+    "ForumConfig": "protocol_core::ForumConfig",
+    "ModerationCertificate": "protocol_core::ModerationCertificate"
+  }
+}"#;
+
     fn build_forum_and_mods() -> (ForumConfig, Vec<ModeratorSecret>) {
         let dealer = DealerShares::pedersen_dkg(2, 3, b"lp0016-registry-test-dealer");
         let names = ["alice", "bob", "carol"];
@@ -375,6 +465,13 @@ mod tests {
         };
         // Two computations of the same canonical hash must agree byte-for-byte.
         assert_eq!(state.canonical_hash(), state.canonical_hash());
+    }
+
+    #[test]
+    fn __lssa_idl_print() {
+        println!("--- LSSA IDL BEGIN lp0016_registry ---");
+        println!("{LP0016_REGISTRY_IDL_JSON}");
+        println!("--- LSSA IDL END lp0016_registry ---");
     }
 
     #[test]
