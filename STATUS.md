@@ -72,7 +72,7 @@
 - [x] Added Lean `Shamir.lean` and `Slash.lean` theorem surfaces, building locally without `sorry`.
 - [x] Replaced the single-screen Basecamp placeholder with a deterministic 9-screen QML flow.
 - [x] Added `app/basecamp-forum/core-module`, a Rust C ABI bridge point over `moderation-sdk`.
-- [x] Extended CI with shell demo smoke coverage, structured CU script output, Basecamp static checks, and a required RISC0 feature check on stable Rust.
+- [x] Extended local and optional workflow coverage with shell demo smoke coverage, structured CU script output, Basecamp static checks, and a required RISC0 feature check on stable Rust.
 - [x] Installed and verified RISC0 tooling locally via `cargo-risczero 3.0.5`, `rzup 0.5.1`, `r0vm 3.0.5`, `cpp 2024.1.5`, and RISC0 Rust `1.94.1`.
 - [x] Installed `logos-scaffold` and converted `src/scaffold.toml` to the current scaffold schema with the pinned LEZ commit.
 - [x] Installed `logos-blockchain-circuits v0.4.2` into `~/.logos-blockchain-circuits`; `logos-scaffold setup` now satisfies the pinned LEZ probe.

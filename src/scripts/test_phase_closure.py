@@ -135,14 +135,14 @@ class PhaseClosureTests(unittest.TestCase):
         self.assertIn("lp0016-anon-forum-demo.lgx", package)
         self.assertIn("logos_qt_mcp", inspector)
 
-    def test_phase_9_ci_risc0_and_cu_readiness_entries_exist(self):
-        ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    def test_phase_9_local_gate_risc0_and_cu_readiness_entries_exist(self):
+        workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text()
         measure = read("scripts/measure_cu.sh")
         local_gate = read("scripts/local_submission_gate.py")
 
-        self.assertIn("risc0-feature", ci)
-        self.assertIn("--features risc0", ci)
-        self.assertIn("./scripts/measure_cu.sh", ci)
+        self.assertIn("risc0-feature", workflow)
+        self.assertIn("--features risc0", workflow)
+        self.assertIn("./scripts/measure_cu.sh", workflow)
         self.assertIn("check_lez_runtime.py", measure)
         self.assertIn("local integration evidence", local_gate)
         self.assertIn("GitHub Actions is intentionally not required", local_gate)

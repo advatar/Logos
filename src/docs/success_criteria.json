@@ -210,10 +210,10 @@
     {
       "id": "SC-SUP-02",
       "category": "Supportability",
-      "title": "LEZ sequencer integration tests in CI",
+      "title": "LEZ sequencer local integration diagnostics",
       "issue": "https://github.com/advatar/Logos/issues/24",
       "current_status": "runtime_ready_check",
-      "criterion": "End-to-end integration tests run against a LEZ sequencer in standalone mode and are included in CI.",
+      "criterion": "End-to-end integration tests run against a LEZ sequencer in standalone mode through the reproducible local submission gate; GitHub Actions is not used as acceptance evidence because hosted jobs are blocked.",
       "proofs": [
         {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_local_submission_gate_runs_success_criteria_and_runtime_checks"},
         {"kind": "diagnostic", "path": "scripts/check_lez_runtime.py", "name": "localnet"}
@@ -222,10 +222,10 @@
     {
       "id": "SC-SUP-03",
       "category": "Supportability",
-      "title": "Default branch CI green",
+      "title": "Local submission gate green while GitHub Actions is blocked",
       "issue": "https://github.com/advatar/Logos/issues/25",
       "current_status": "local_proof",
-      "criterion": "CI must be green on the default branch. GitHub Actions is unavailable for this repo because account billing/spending limits block job startup, so submission evidence uses the reproducible local integration gate instead.",
+      "criterion": "The default branch must have reproducible green local acceptance evidence. GitHub Actions is unavailable for this repo because account billing/spending limits block job startup, so submission evidence uses the local integration gate instead.",
       "proofs": [
         {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_local_submission_gate_runs_success_criteria_and_runtime_checks"},
         {"kind": "integration", "path": "scripts/local_submission_gate.py", "name": "local submission gate"},

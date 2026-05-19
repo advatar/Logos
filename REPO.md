@@ -85,14 +85,15 @@ retroactive linkability for only the slashed member
 two independent forum instances with different K/N parameters
 ```
 
-I could **not** verify the Rust or Lean builds inside this sandbox because `rustc`, `cargo`, `lean`, and `lake` are not installed here. The repo includes CI jobs for both, but your developer should run:
+Submission verification is local-only because hosted GitHub Actions is blocked
+before job startup by account billing/spending limits. Run the reproducible gate:
 
 ```bash
-cargo test --workspace
-cd lean && lake build
+cd src
+scripts/local_submission_gate.py
 ```
 
-The repo is aligned with the prize shape: LP-0016 requires a forum-agnostic moderation library plus a Basecamp app, with off-chain posting/moderation and on-chain slash only at revocation time.  [oai_citation:0‡GitHub](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0016.md) It also targets the LP-0016 success criteria around anonymous posting, N-of-M moderation, K-certificate slash, revocation, SDK APIs, SPEL IDL, LEZ testnet demo, CI, and RISC0 proof demo.  [oai_citation:1‡GitHub](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0016.md)
+The repo is aligned with the prize shape: LP-0016 requires a forum-agnostic moderation library plus a Basecamp app, with off-chain posting/moderation and on-chain slash only at revocation time.  [oai_citation:0‡GitHub](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0016.md) It also targets the LP-0016 success criteria around anonymous posting, N-of-M moderation, K-certificate slash, revocation, SDK APIs, SPEL IDL, LEZ testnet demo, local evidence, and RISC0 proof demo.  [oai_citation:1‡GitHub](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0016.md)
 
 I also reflected the current Logos stack constraints: LEZ uses stateless programs with persistent data passed through accounts, and supports public execution plus private execution verified through RISC0 proofs.  [oai_citation:2‡GitHub](https://github.com/logos-blockchain/logos-execution-zone) The repo therefore keeps the registry small and state-account oriented. I also included `logos-scaffold` assumptions because its current CLI exposes LEZ/SPEL/Basecamp flows such as `build idl`, `deploy`, `localnet`, and Basecamp launch/build commands.  [oai_citation:3‡GitHub](https://github.com/logos-co/scaffold) Basecamp is represented as a placeholder app because the public Basecamp module APIs are still evolving, while the current Basecamp repo documents LEZ wallet, Storage, Chat, and other module patterns rather than a stable LP-0016-specific template.  [oai_citation:4‡GitHub](https://github.com/logos-co/logos-basecamp)
 
