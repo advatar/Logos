@@ -12,6 +12,14 @@
 - Phase 2-9 closure verification: https://github.com/advatar/Logos/issues/29
 - Dependency install / runtime unblock pass: https://github.com/advatar/Logos/issues/30
 - Final local submission readiness pass: https://github.com/advatar/Logos/issues/31
+- Finish remaining hackathon submission blockers locally: https://github.com/advatar/Logos/issues/32
+
+## Active Finish Remaining Submission Blockers Pass
+
+- [x] Reassess every remaining open success-criteria issue and close anything now covered by local evidence.
+- [x] Add concrete submission/demo artifacts for evaluator handoff without relying on GitHub CI: `src/scripts/collect_localnet_evidence.py`.
+- [x] Attempt to convert local sequencer, Basecamp, RISC0, CU, and devnet/testnet blockers into executable local proof or precise final blockers.
+- [x] Run local verification, commit, push, and update issue #32 plus affected success-criteria issues.
 
 ## Active Final Local Submission Readiness Pass
 
@@ -83,11 +91,12 @@
 - [x] Packaged the Basecamp UI as a real `ui_qml` LGX (`scripts/package_basecamp.sh`) and changed `Main.qml` to an embeddable `Item` root for Basecamp's `QQuickWidget` loader.
 - [x] Boot-tested the official macOS `logos-basecamp` v0.1.1 runtime from the signed/notarized DMG.
 - [x] Built an inspector-enabled Basecamp app locally without Nix, rebuilt matching `package_manager` and `main_ui` plugins, installed the design-system QML imports, and passed the LP-0016 QML inspector click-through.
+- [x] Added `scripts/collect_localnet_evidence.py`, which starts the local sequencer directly when scaffold state is stale, deploys the registry guest, runs `RISC0_DEV_MODE=0 scripts/demo_e2e.sh`, writes `dist/submission/localnet_evidence.json`, and passes locally.
 
 ## External Blockers
 
 - [ ] CU measurement for `register_member` / `slash_member`: local registry deploy submission works, but current scaffold/wallet exposes no custom deployed-program invoke command or CU reporting path for these LP-0016 instructions. `scripts/measure_cu.sh` now reports this exact narrowed blocker as JSON after deployment submission.
-- [ ] LEZ devnet/testnet proof: `registry/program_ids/localnet.txt` is recorded, but `registry/program_ids/devnet.txt` and `registry/program_ids/testnet.txt` still require live network deployment.
+- [ ] LEZ devnet/testnet proof: `registry/program_ids/localnet.txt` is recorded and `scripts/check_live_network_deploy.py` reports exact missing endpoint/program-ID blockers; `registry/program_ids/devnet.txt` and `registry/program_ids/testnet.txt` still require live network deployment.
 - [ ] Basecamp inspector runtime artifacts: durable env/cache discovery is implemented, but this shell currently lacks `logos-qt-mcp`, a built `LogosBasecamp` binary, and design-system QML paths unless supplied through `LOGOS_BASECAMP_CACHE` or explicit env vars.
 - [ ] Full RISC0 proof generation from the app flow: feature-gated host checks pass and generated receipt bytes can now be converted/attached to `ZkReceipt::Risc0`; the remaining blocker is producing the final guest image and serialized receipt from the application flow rather than the current local host feature test.
 - [ ] Narrated video demo: must be recorded by the builder and linked from the README before final submission.
@@ -95,7 +104,8 @@
 ## Current Verification
 
 - `cd src && python3 scripts/demo_e2e.py`: passed.
-- `cd src && python3 -m unittest scripts/test_protocol.py scripts/test_basecamp_package.py scripts/test_runtime_checks.py scripts/test_success_criteria.py scripts/test_phase_closure.py`: passed, 38 tests.
+- `cd src && python3 -m unittest scripts/test_protocol.py scripts/test_basecamp_package.py scripts/test_runtime_checks.py scripts/test_success_criteria.py scripts/test_phase_closure.py`: passed, 39 tests.
+- `cd src && python3 -m unittest scripts/test_runtime_checks.py scripts/test_success_criteria.py`: passed, 19 tests.
 - `cd src && python3 -m unittest scripts/test_phase_closure.py`: passed, 9 tests.
 - `cd src && python3 -m json.tool docs/success_criteria.json`: passed.
 - `cd src && cargo build --workspace`: passed.
@@ -114,7 +124,9 @@
 - `cd src/methods && cargo risczero build --manifest-path guest/Cargo.toml`: passed and emitted `methods/target/riscv32im-risc0-zkvm-elf/docker/lp0016_registry.bin`.
 - `cd src && ~/.cargo/bin/logos-scaffold build idl`: passed and wrote `registry/idl/lp0016_registry.json`.
 - `cd src && ~/.cargo/bin/logos-scaffold deploy lp0016_registry --program-path methods/target/riscv32im-risc0-zkvm-elf/docker/lp0016_registry.bin --json`: passed and returned `{"status":"submitted","program":"lp0016_registry","tx":null}`.
-- `cd src && scripts/local_submission_gate.py`: passed and wrote `dist/submission/evidence.json` with all required local steps green; optional Basecamp runtime and CU diagnostics still report the external artifact/custom invoke blockers.
+- `cd src && python3 scripts/collect_localnet_evidence.py`: passed and wrote `dist/submission/localnet_evidence.json` with local sequencer runtime `ready`, deploy submission ok, and `RISC0_DEV_MODE=0` demo ok.
+- `cd src && python3 scripts/check_live_network_deploy.py`: passed script execution and reports structured blockers for missing `LOGOS_LEZ_DEVNET_URL`, `LOGOS_LEZ_TESTNET_URL`, `registry/program_ids/devnet.txt`, and `registry/program_ids/testnet.txt`.
+- `cd src && scripts/local_submission_gate.py`: passed and wrote `dist/submission/evidence.json` with all required local steps green, including `localnet_evidence`; optional Basecamp runtime, live-network, and CU diagnostics still report the external artifact/custom invoke blockers.
 - `cd src && cargo risczero --version`: passed, `cargo-risczero 3.0.5`.
 - `cd src && ~/.cargo/bin/rzup --version && ~/.cargo/bin/r0vm --version`: passed, `rzup 0.5.1` and `risc0-r0vm 3.0.5`.
 - `cd src && ~/.cargo/bin/logos-scaffold doctor`: reported 13 PASS, 4 WARN, 0 FAIL with localnet not running; remaining WARNs are LEZ cache working tree dirty plus sequencer/localnet reachability.

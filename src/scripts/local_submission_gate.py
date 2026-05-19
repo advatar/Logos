@@ -110,6 +110,11 @@ def build_steps(skip_slow: bool) -> list[dict]:
             "name": "lez_guest_build",
             "cmd": ["bash", "-lc", "cd methods && cargo risczero build --manifest-path guest/Cargo.toml"],
         },
+        {
+            "name": "localnet_evidence",
+            "cmd": ["python3", "scripts/collect_localnet_evidence.py"],
+            "parse_json": True,
+        },
         {"name": "lean_build", "cmd": ["lake", "build"], "cwd": ROOT / "lean"},
         {
             "name": "basecamp_package",
@@ -130,6 +135,12 @@ def build_steps(skip_slow: bool) -> list[dict]:
         {
             "name": "cu_diagnostic",
             "cmd": ["scripts/measure_cu.sh"],
+            "required": False,
+            "parse_json": True,
+        },
+        {
+            "name": "live_network_deploy_diagnostic",
+            "cmd": ["python3", "scripts/check_live_network_deploy.py"],
             "required": False,
             "parse_json": True,
         },

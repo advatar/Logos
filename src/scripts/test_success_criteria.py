@@ -275,6 +275,7 @@ class SuccessCriteriaMatrixTests(unittest.TestCase):
     def test_local_submission_gate_runs_success_criteria_and_runtime_checks(self):
         ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text()
         gate = (ROOT / "scripts" / "local_submission_gate.py").read_text()
+        localnet = (ROOT / "scripts" / "collect_localnet_evidence.py").read_text()
 
         self.assertIn("test_success_criteria.py", ci)
         self.assertIn("test_runtime_checks.py", ci)
@@ -282,11 +283,14 @@ class SuccessCriteriaMatrixTests(unittest.TestCase):
         self.assertIn("test_success_criteria.py", gate)
         self.assertIn("test_runtime_checks.py", gate)
         self.assertIn("measure_cu.sh", gate)
+        self.assertIn("RISC0_DEV_MODE", localnet)
+        self.assertIn("localnet_evidence", localnet)
 
     def test_runtime_diagnostics_are_structured(self):
         for script, target in [
             ("check_lez_runtime.py", "lez_runtime"),
             ("check_basecamp_inspector.py", "basecamp_qml_inspector"),
+            ("check_live_network_deploy.py", "live_lez_deployment"),
         ]:
             output = subprocess.check_output(
                 ["python3", str(ROOT / "scripts" / script)],

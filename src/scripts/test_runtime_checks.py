@@ -78,8 +78,18 @@ class RuntimeCheckTests(unittest.TestCase):
 
         self.assertIn("local integration evidence", text)
         self.assertIn("strict-runtime", text)
+        self.assertIn("collect_localnet_evidence.py", text)
         self.assertIn("scripts/check_lez_runtime.py", text)
         self.assertIn("scripts/check_basecamp_inspector.py", text)
+
+    def test_localnet_evidence_script_starts_direct_sequencer(self):
+        script = ROOT / "scripts" / "collect_localnet_evidence.py"
+        text = script.read_text()
+
+        self.assertIn("sequencer_service", text)
+        self.assertIn("RISC0_DEV_MODE", text)
+        self.assertIn("localnet_evidence", text)
+        self.assertIn("deploy", text)
 
 
 if __name__ == "__main__":
