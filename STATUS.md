@@ -78,7 +78,7 @@
 - [x] Installed `logos-blockchain-circuits v0.4.2` into `~/.logos-blockchain-circuits`; `logos-scaffold setup` now satisfies the pinned LEZ probe.
 - [x] Added a deployable `lez-framework` guest at `src/methods/guest/src/bin/lp0016_registry.rs`, switched `src/scaffold.toml` to `framework.kind = "lez-framework"`, and verified `cargo +stable check --manifest-path methods/guest/Cargo.toml`.
 - [x] Ran `logos-scaffold build idl`; it now writes `src/registry/idl/lp0016_registry.json` from the hidden `__lssa_idl_print` test.
-- [x] Built the LEZ registry RISC0 guest binary with `cd src/methods && cargo risczero build --manifest-path guest/Cargo.toml`; image/program id `d4e94a8c0e642f6a440882a69ec0ce20148d343e5369e9b8a7702d108ddd01ec` is recorded in `src/registry/program_ids/localnet.txt`.
+- [x] Built the LEZ registry RISC0 guest binary with `cd src/methods && cargo risczero build --manifest-path guest/Cargo.toml`; image/program id `dd914ffd8202da7c363d0aa7d9ad6222d1638b79f63a13f5dd24109896817e30` is recorded in `src/registry/program_ids/localnet.txt`.
 - [x] Submitted the built registry program to a live local sequencer with `logos-scaffold deploy lp0016_registry --program-path methods/target/riscv32im-risc0-zkvm-elf/docker/lp0016_registry.bin --json`.
 - [x] Packaged the Basecamp UI as a real `ui_qml` LGX (`scripts/package_basecamp.sh`) and changed `Main.qml` to an embeddable `Item` root for Basecamp's `QQuickWidget` loader.
 - [x] Boot-tested the official macOS `logos-basecamp` v0.1.1 runtime from the signed/notarized DMG.

@@ -16,7 +16,7 @@ members = [
 
 [workspace.dependencies]
 nssa_core = { git = "https://github.com/logos-blockchain/lssa.git", rev = "767b5afd388c7981bcdf6f5b5c80159607e07e5b" }
-risc0-zkvm = { version = "3.0.5", features = ["std"] }
+risc0-zkvm = { version = "3.0.5", default-features = false, features = ["std"] }
 risc0-build = "3.0.5"
 lez-framework = { git = "https://github.com/jimmy-claw/lez-framework.git", rev = "1e146970d2bba861a32fd3a8b4e13b1e6ff4114d" }
 lez-framework-core = { git = "https://github.com/jimmy-claw/lez-framework.git", rev = "1e146970d2bba861a32fd3a8b4e13b1e6ff4114d" }
@@ -28,6 +28,16 @@ borsh = { version = "1.5", features = ["derive"] }
 # RISC0's current guest-builder image uses rustc 1.88.0-dev. ruint 1.18
 # requires rustc 1.90, so pin the latest 1.88-compatible release here.
 ruint = "=1.17.2"
+
+[patch."https://github.com/logos-blockchain/lssa.git"]
+# Keep the methods guest on guest-compatible RISC0 features while preserving
+# the pinned LSSA account/state API expected by lez-framework.
+nssa_core = { path = "vendor/nssa_core" }
+
+[patch.crates-io]
+# Arkworks 0.5.1 still permits tracing-subscriber 0.2.x; the local patch keeps
+# the same ark-relations release while using the patched tracing subscriber API.
+ark-relations = { path = "vendor/ark-relations-0.5.1" }
 
 [build-dependencies]
 risc0-build.workspace = true

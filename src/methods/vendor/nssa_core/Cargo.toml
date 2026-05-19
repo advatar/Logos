@@ -1,0 +1,29 @@
+[package]
+name = "nssa_core"
+version = "0.1.0"
+edition = "2024"
+license = { workspace = true }
+
+[dependencies]
+risc0-zkvm = { version = "3.0.5", default-features = false, features = ["std"] }
+borsh = "1.5.7"
+serde = { version = "1.0.60", default-features = false, features = ["derive"] }
+serde_with = "3.16.1"
+thiserror = "2.0.12"
+bytemuck = "1.24.0"
+base58 = "0.2.0"
+k256 = { version = "0.13.3", features = [
+  "ecdsa-core",
+  "arithmetic",
+  "expose-field",
+  "serde",
+  "pem",
+], optional = true }
+chacha20 = { version = "0.9", default-features = false }
+
+[dev-dependencies]
+serde_json = "1.0.81"
+
+[features]
+default = []
+host = ["dep:k256"]
