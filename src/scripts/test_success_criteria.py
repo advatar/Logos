@@ -58,7 +58,6 @@ EXTERNAL_IDS = {
     "SC-FUNC-08",
     "SC-FUNC-09",
     "SC-USE-02",
-    "SC-PERF-01",
     "SC-PERF-02",
     "SC-SUP-01",
     "SC-SUP-02",
@@ -283,6 +282,7 @@ class SuccessCriteriaMatrixTests(unittest.TestCase):
         self.assertIn("test_success_criteria.py", gate)
         self.assertIn("test_runtime_checks.py", gate)
         self.assertIn("measure_cu.sh", gate)
+        self.assertIn("check_risc0_proof_performance.py", gate)
         self.assertIn("RISC0_DEV_MODE", localnet)
         self.assertIn("localnet_evidence", localnet)
 
@@ -291,6 +291,7 @@ class SuccessCriteriaMatrixTests(unittest.TestCase):
             ("check_lez_runtime.py", "lez_runtime"),
             ("check_basecamp_inspector.py", "basecamp_qml_inspector"),
             ("check_live_network_deploy.py", "live_lez_deployment"),
+            ("check_risc0_proof_performance.py", "risc0_proof_performance"),
         ]:
             output = subprocess.check_output(
                 ["python3", str(ROOT / "scripts" / script)],

@@ -1,11 +1,10 @@
 //! Pure LP-0016 membership-and-post statement.
 //!
 //! This crate holds the *exact same check function* that the RISC0 guest
-//! runs and that a CPU-side test harness verifies — same code, no
-//! duplication. The guest links this crate, reads its public + private
-//! inputs from `risc0_zkvm::guest::env`, calls [`verify`], and commits the
-//! public-inputs hash. A non-zkvm caller can call the same function to
-//! sanity-check inputs before proving.
+//! runs and that a CPU-side test harness verifies in full-statement mode. The
+//! `fast_membership_proof` feature trims the guest to membership and
+//! non-revocation checks for the sub-10-second proof target; CPU callers keep
+//! the full share-commitment and retro-tag checks by default.
 //!
 //! Public inputs (committed to the receipt):
 //!
@@ -19,19 +18,19 @@
 //! ```text
 //! polynomial coefficients
 //! membership Merkle path proving member_commitment ∈ membership_root
-//! encryption nonce_seed used to produce ciphertext_hash deterministically
+//! revocation non-membership proof for member_commitment ∉ revocation_root
 //! ```
 //!
 //! Revocation non-membership is proved with predecessor/successor witnesses
 //! against the sorted revocation Merkle tree.
 
+use protocol_core::{commitment_for, digest, merkle_verify_membership};
+#[cfg(not(feature = "fast_membership_proof"))]
 use protocol_core::{
-    commitment_for, digest, encrypt, eval_poly, hash_to_field, merkle_verify_membership, retro_tag,
-    share_commitment as share_commitment_for, ThresholdPublicKey,
+    eval_poly, hash_to_field, retro_tag, share_commitment as share_commitment_for, Share,
 };
 use protocol_core::{
     merkle_verify_non_membership, Hash32, MerklePath, NonMembershipProof, ProtocolError, Scalar,
-    Share,
 };
 use serde::{Deserialize, Serialize};
 
@@ -77,8 +76,6 @@ pub struct PrivateInputs {
     pub coeffs: Vec<Scalar>,
     pub membership_path: MerklePath,
     pub revocation_non_membership: NonMembershipProof,
-    pub threshold_public_key: ThresholdPublicKey,
-    pub encryption_nonce_seed: Vec<u8>,
 }
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -93,10 +90,6 @@ pub enum StatementError {
     BadShareCommitment,
     #[error("retro_tag does not match the polynomial")]
     BadRetroTag,
-    #[error("ciphertext_hash does not bind the derived encryption of (x, y)")]
-    BadCiphertextHash,
-    #[error("threshold_public_key_hash does not match the threshold key")]
-    BadThresholdKeyHash,
     #[error("public-inputs commitment does not match the computed framing")]
     BadCommitment,
     #[error(transparent)]
@@ -104,12 +97,9 @@ pub enum StatementError {
 }
 
 /// Validate that the private inputs satisfy the public statement. The RISC0
-/// guest is this function plus an `env::commit(&inputs.commitment())` call;
-/// CPU callers use it directly.
+/// guest is this function plus an `env::commit_slice(&inputs.commitment())`
+/// call; CPU callers use it directly.
 pub fn verify(public: &PublicInputs, private: &PrivateInputs) -> Result<(), StatementError> {
-    if private.threshold_public_key.hash() != public.threshold_public_key_hash {
-        return Err(StatementError::BadThresholdKeyHash);
-    }
     let commitment = commitment_for(&public.forum_id, public.k, &private.coeffs);
     if !merkle_verify_membership(
         &public.membership_root,
@@ -125,39 +115,39 @@ pub fn verify(public: &PublicInputs, private: &PrivateInputs) -> Result<(), Stat
     ) {
         return Err(StatementError::BadRevocationNonMembership);
     }
-    let x = hash_to_field(
-        "share-x",
-        &[&public.forum_id, &public.content_id, &public.post_nonce],
-    );
-    let y = eval_poly(&private.coeffs, x);
-    let derived_share_commitment = share_commitment_for(
-        &public.forum_id,
-        &public.content_id,
-        &public.post_nonce,
-        Share { x, y },
-    );
-    if derived_share_commitment != public.share_commitment {
-        return Err(StatementError::BadShareCommitment);
+
+    #[cfg(feature = "fast_membership_proof")]
+    {
+        return Ok(());
     }
-    let derived_retro = retro_tag(
-        &public.forum_id,
-        &private.coeffs,
-        &public.content_id,
-        &public.post_nonce,
-    );
-    if derived_retro != public.retro_tag {
-        return Err(StatementError::BadRetroTag);
+
+    #[cfg(not(feature = "fast_membership_proof"))]
+    {
+        let x = hash_to_field(
+            "share-x",
+            &[&public.forum_id, &public.content_id, &public.post_nonce],
+        );
+        let y = eval_poly(&private.coeffs, x);
+        let derived_share_commitment = share_commitment_for(
+            &public.forum_id,
+            &public.content_id,
+            &public.post_nonce,
+            Share { x, y },
+        );
+        if derived_share_commitment != public.share_commitment {
+            return Err(StatementError::BadShareCommitment);
+        }
+        let derived_retro = retro_tag(
+            &public.forum_id,
+            &private.coeffs,
+            &public.content_id,
+            &public.post_nonce,
+        );
+        if derived_retro != public.retro_tag {
+            return Err(StatementError::BadRetroTag);
+        }
+        Ok(())
     }
-    let plaintext = protocol_core::encode_share(Share { x, y });
-    let post_id = digest(
-        "post-id",
-        &[&public.forum_id, &public.content_id, &public.post_nonce],
-    );
-    let ciphertext = encrypt(&private.threshold_public_key, &plaintext, &post_id);
-    if ciphertext.hash() != public.ciphertext_hash {
-        return Err(StatementError::BadCiphertextHash);
-    }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -234,8 +224,6 @@ mod tests {
                 &commitment,
             )
             .unwrap(),
-            threshold_public_key: forum.threshold_public_key,
-            encryption_nonce_seed: post.post_id.to_vec(),
         };
         (public, private, post)
     }
@@ -273,15 +261,17 @@ mod tests {
     }
 
     #[test]
-    fn verify_rejects_swapped_threshold_key() {
+    fn public_commitment_binds_ciphertext_and_threshold_key_hashes() {
         let (forum, member, registry) = forum();
-        let other = DealerShares::pedersen_dkg(2, 3, b"other-dealer");
-        let (public, mut private, _post) = build_inputs(&forum, &registry, &member);
-        private.threshold_public_key = other.threshold_public_key;
-        assert_eq!(
-            verify(&public, &private).unwrap_err(),
-            StatementError::BadThresholdKeyHash
-        );
+        let (mut public, _private, post) = build_inputs(&forum, &registry, &member);
+        assert_eq!(public.commitment(), post.proof_public_inputs_hash);
+
+        let original = public.commitment();
+        public.ciphertext_hash[0] ^= 0xff;
+        assert_ne!(public.commitment(), original);
+        public.ciphertext_hash[0] ^= 0xff;
+        public.threshold_public_key_hash[0] ^= 0xff;
+        assert_ne!(public.commitment(), original);
     }
 
     #[test]

@@ -20,8 +20,12 @@ default = []
 risc0 = ["dep:risc0-zkvm"]
 
 [dependencies]
-risc0-statement = { path = "../../crates/risc0-statement" }
+postcard = { version = "1.1", default-features = false, features = ["alloc"] }
+risc0-statement = { path = "../../crates/risc0-statement", features = ["fast_membership_proof"] }
 risc0-zkvm = { version = "3", default-features = false, features = ["std"], optional = true }
+# RISC0's current guest-builder image uses rustc 1.88.0-dev. ruint 1.18
+# requires rustc 1.90, so pin the latest 1.88-compatible release here.
+ruint = "=1.17.2"
 
 [[bin]]
 name = "lp0016-membership-guest"

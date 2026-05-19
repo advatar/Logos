@@ -79,8 +79,17 @@ class RuntimeCheckTests(unittest.TestCase):
         self.assertIn("local integration evidence", text)
         self.assertIn("strict-runtime", text)
         self.assertIn("collect_localnet_evidence.py", text)
+        self.assertIn("check_risc0_proof_performance.py", text)
         self.assertIn("scripts/check_lez_runtime.py", text)
         self.assertIn("scripts/check_basecamp_inspector.py", text)
+
+    def test_risc0_proof_performance_check_reports_structured_status(self):
+        report = self.run_json_script("check_risc0_proof_performance.py")
+
+        self.assertIn(report["status"], {"ready", "blocked"})
+        self.assertEqual(report["target"], "risc0_proof_performance")
+        self.assertIsInstance(report["blockers"], list)
+        self.assertIn("threshold_seconds", report)
 
     def test_localnet_evidence_script_starts_direct_sequencer(self):
         script = ROOT / "scripts" / "collect_localnet_evidence.py"

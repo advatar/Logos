@@ -103,6 +103,16 @@ def build_steps(skip_slow: bool) -> list[dict]:
             ],
         },
         {
+            "name": "risc0_proof_performance",
+            "cmd": [
+                "python3",
+                "scripts/check_risc0_proof_performance.py",
+                "--run-prover",
+                "--fail-on-blocked",
+            ],
+            "parse_json": True,
+        },
+        {
             "name": "lez_guest_check",
             "cmd": ["cargo", "+stable", "check", "--manifest-path", "methods/guest/Cargo.toml"],
         },
@@ -151,6 +161,7 @@ def build_steps(skip_slow: bool) -> list[dict]:
             "rust_tests",
             "risc0_dev_mode_zero_demo",
             "risc0_host_feature",
+            "risc0_proof_performance",
             "lez_guest_build",
             "lean_build",
         }

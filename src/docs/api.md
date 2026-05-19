@@ -135,8 +135,7 @@ pub struct PublicInputs { forum_id, k, membership_root, revocation_root,
     content_id, post_nonce, threshold_public_key_hash, ciphertext_hash,
     retro_tag, share_commitment }
 
-pub struct PrivateInputs { coeffs, membership_path, revocation_non_membership,
-    threshold_public_key, encryption_nonce_seed }
+pub struct PrivateInputs { coeffs, membership_path, revocation_non_membership }
 
 pub fn verify(public: &PublicInputs, private: &PrivateInputs) -> Result<(), StatementError>;
 ```

@@ -12,12 +12,14 @@ scripts/local_submission_gate.py
 The gate writes `dist/submission/evidence.json` plus per-command logs under
 `dist/submission/logs/`. The required local steps include the Python lifecycle
 demo, success-criteria tests, Rust workspace build/tests, RISC0 host feature
-check, LEZ guest check/build, Lean build, and Basecamp package build.
+check, real RISC0 proof-performance measurement, LEZ guest check/build, Lean
+build, and Basecamp package build.
 
 Runtime diagnostics are included as non-required evidence steps:
 
 ```bash
 python3 scripts/collect_localnet_evidence.py
+python3 scripts/check_risc0_proof_performance.py --run-prover --fail-on-blocked
 python3 scripts/check_lez_runtime.py --pretty
 python3 scripts/check_basecamp_inspector.py --pretty
 python3 scripts/check_live_network_deploy.py
@@ -30,6 +32,11 @@ submitted it to a local sequencer. `scripts/collect_localnet_evidence.py`
 starts the local sequencer directly when scaffold's localnet state is stale,
 deploys the registry guest, runs `RISC0_DEV_MODE=0 scripts/demo_e2e.sh`, and
 writes `dist/submission/localnet_evidence.json`.
+
+The RISC0 proof-performance diagnostic builds the membership guest and runs the
+real host prover with `RISC0_DEV_MODE=0`. The latest local gate run reported
+`proof_seconds: 6.053`, under the 10-second target, and wrote
+`dist/submission/risc0_proof_performance.json`.
 
 The local program image ID is recorded in `registry/program_ids/localnet.txt`:
 

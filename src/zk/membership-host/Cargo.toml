@@ -19,6 +19,7 @@ default = []
 risc0 = ["dep:risc0-zkvm"]
 
 [dependencies]
+postcard = { version = "1.1", default-features = false, features = ["alloc"] }
 protocol-core = { path = "../../crates/protocol-core" }
 risc0-statement = { path = "../../crates/risc0-statement" }
 risc0-zkvm = { version = "3", optional = true }

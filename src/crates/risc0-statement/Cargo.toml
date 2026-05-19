@@ -5,6 +5,10 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Pure LP-0016 membership-and-post statement, used inside the RISC0 guest and verified on the CPU."
 
+[features]
+default = []
+fast_membership_proof = []
+
 [dependencies]
 curve25519-dalek.workspace = true
 hex.workspace = true

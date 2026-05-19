@@ -26,8 +26,10 @@ Submission evidence:
 
 - Local gate: `cd src && scripts/local_submission_gate.py`
 - Local sequencer deploy/RISC0 evidence: `cd src && python3 scripts/collect_localnet_evidence.py`
+- RISC0 proof performance: `cd src && python3 scripts/check_risc0_proof_performance.py --run-prover --fail-on-blocked`
 - Evidence JSON: `src/dist/submission/evidence.json`
 - Localnet evidence JSON: `src/dist/submission/localnet_evidence.json`
+- RISC0 proof performance JSON: `src/dist/submission/risc0_proof_performance.json`
 - Localnet registry image ID: `dd914ffd8202da7c363d0aa7d9ad6222d1638b79f63a13f5dd24109896817e30`
 - Program ID files: `src/registry/program_ids/`
 

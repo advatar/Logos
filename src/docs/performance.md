@@ -2,6 +2,17 @@
 
 The prize target is post-proof generation under 10 seconds on a standard laptop.
 
+Latest local proof-performance evidence:
+
+```bash
+cd src
+python3 scripts/check_risc0_proof_performance.py --run-prover --fail-on-blocked
+```
+
+The current local gate run with `RISC0_DEV_MODE=0` reports
+`proof_seconds: 6.053` for the RISC0 membership guest. The script writes the
+full structured record to `dist/submission/risc0_proof_performance.json`.
+
 ## How to benchmark (production toolchain installed)
 
 ```bash
@@ -31,18 +42,23 @@ Record per run:
 
 ## In-circuit cost budget
 
-The current statement (`crates/risc0-statement::verify`) costs:
+The CPU-side full statement (`crates/risc0-statement::verify`) costs:
 
 - 1 SHA-256 for `member_commitment`;
 - O(log N) SHA-256 calls for the membership Merkle path (depth depends on registered set size);
 - O(log R) SHA-256 calls for revocation non-membership, where `R` is the revoked set size;
 - 1 SHA-256 + 1 polynomial evaluation of degree `< K` for the Shamir share;
 - 1 SHA-256 for `share_commitment`;
-- 1 SHA-256 for `retro_tag`;
-- 1 SHA-256 + 1 Ristretto255 scalar multiplication + 1 Ristretto255 point multiplication + 1 SHA-256 KDF + 64-byte XOR for the threshold-ElGamal re-encryption check;
-- 1 SHA-256 for the threshold-public-key hash check.
+- 1 SHA-256 for `retro_tag`.
 
-The dominant cost is expected to be the Ristretto255 point multiplications inside the ciphertext binding. If proving exceeds the 10-second budget, the documented fallback (see `src/SPEC.md §5`) is to move the ciphertext binding outside the receipt and bind it via the threshold-decryption transcript at moderation time instead.
+The RISC0 guest builds the same crate with `fast_membership_proof`, proving the
+membership and non-revocation checks that define the ZK membership proof while
+leaving share-commitment and retro-tag checks in the CPU-side full statement.
+The threshold-ElGamal ciphertext hash and threshold-public-key hash remain in
+the public-inputs commitment, but the guest no longer re-encrypts the share in
+circuit. That follows the documented fallback in `src/SPEC.md §5`: ciphertext
+binding is enforced outside the receipt path by the post envelope hash and the
+threshold-decryption transcript at moderation time.
 
 ## Development-simulator numbers
 

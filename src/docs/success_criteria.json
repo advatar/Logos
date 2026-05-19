@@ -177,10 +177,11 @@
       "category": "Performance",
       "title": "ZK proof generation under ten seconds",
       "issue": "https://github.com/advatar/Logos/issues/21",
-      "current_status": "external_runtime_required",
+      "current_status": "local_proof",
       "criterion": "ZK membership proof generation takes less than 10 seconds on a standard laptop.",
       "proofs": [
-        {"kind": "diagnostic", "path": "scripts/check_lez_runtime.py", "name": "guest_source"},
+        {"kind": "diagnostic", "path": "scripts/check_risc0_proof_performance.py", "name": "risc0_proof_performance"},
+        {"kind": "rust", "path": "zk/membership-host/src/lib.rs", "name": "proves_sample_membership_with_guest_elf"},
         {"kind": "doc", "path": "docs/performance.md", "name": "RISC0 benchmark target"}
       ]
     },

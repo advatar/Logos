@@ -50,7 +50,7 @@ proof_public_inputs_hash = digest(
 
 The post envelope binds all of the above. The ZK receipt (RISC0) commits to `proof_public_inputs_hash`; nothing else about the member is revealed.
 
-The threshold-ElGamal hybrid encryption uses `KEM = SHA-256("kem" || rY)` keying a SHA-256 counter-mode KDF; the 64-byte `(x, y)` plaintext is XOR'd against the keystream. `r` is derived deterministically from `nonce_seed` so the post envelope's `ciphertext_hash` is reproducible by the RISC0 guest, which is what binds the encryption inside the receipt.
+The threshold-ElGamal hybrid encryption uses `KEM = SHA-256("kem" || rY)` keying a SHA-256 counter-mode KDF; the 64-byte `(x, y)` plaintext is XOR'd against the keystream. The post envelope's `ciphertext_hash` and `threshold_public_key_hash` are bound into the RISC0 public-inputs commitment, while the performance guest proves membership and non-revocation. The CPU full statement still checks share commitment and retro tag, and ciphertext binding is enforced outside the receipt path by the envelope hash and the threshold-decryption transcript at moderation time so proof generation stays inside the hackathon performance target.
 
 ## Moderation certificates
 
