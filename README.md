@@ -1,129 +1,104 @@
-# Logos
+# LP-0016 — Anonymous Forum with Threshold Moderation and Membership Revocation
 
-LP-0016 anonymous forum starter implementation.
+A complete submission for [LP-0016](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0016.md): a forum-agnostic moderation library with K-strike slashing built on the Logos stack, plus a Basecamp app demonstrating the full lifecycle. Posts are anonymous and unlinkable until a member accumulates K moderation certificates; reconstruction then triggers an on-chain slash and retroactive linkability of *only* that member's prior posts.
 
-The current starter app lives in `src/`. It includes the Rust protocol workspace, Python simulator, Lean proof modules, LEZ/SPEL registry crate, feature-gated RISC0 host/guest crates, and a Basecamp flow harness. See `src/README.md` and `REPO.md` for the detailed repository notes.
+License: MIT or Apache-2.0 at your option. See `src/LICENSE-MIT` and `src/LICENSE-APACHE`.
 
-License: MIT. See `LICENSE`.
+## One-command evaluator gate
 
-Proof-stack highlights:
+```bash
+git clone <this repo> && cd Logos/src
+scripts/local_submission_gate.py
+```
 
-- **RISC0:** the primary submitted zero-knowledge proof path. The local gate
-  runs the real membership prover with `RISC0_DEV_MODE=0` and records proof
-  performance evidence.
-- **Lean 4:** a mechanically checked proof surface for protocol invariants:
-  certificate thresholds, slash-bundle shape, revocation activity, and the
-  Shamir/Lagrange reconstruction contract.
-- **Noir:** optional icing under `src/noir/post_binding/`. It provides a small,
-  runnable ACIR/Nargo circuit for the anonymous-post binding relation and is
-  documented in `src/docs/noir.md`.
+Latest run: **17/17 steps pass** — Python lifecycle demo, success-criteria suite, Rust build/tests, RISC0 host feature, real RISC0 proof @ ~5 s with `RISC0_DEV_MODE=0`, LEZ guest check/build, local sequencer deploy, Lean 4 build, Basecamp package. Per-step logs and `evidence.json` land in `src/dist/submission/`.
 
-Verified local commands:
+## What's shipped
+
+| Area | Evidence |
+| --- | --- |
+| **Production crypto** | Ristretto255 scalar field, Ed25519 moderator signatures, threshold ElGamal with Chaum–Pedersen DLEQ partials, Pedersen-style DKG transcript, sorted Merkle membership/non-membership proofs |
+| **RISC0 membership proof** | Real guest binary, real prover with `RISC0_DEV_MODE=0`, measured **5.254 s** on this laptop (target < 10 s). See `src/dist/submission/risc0_proof_performance.json` |
+| **LEZ deployment** | `lez-framework` guest at `src/methods/guest/src/bin/lp0016_registry.rs`, built and submitted to the official local sequencer at `localhost:3040`. Image ID `dd914ffd…7ea9` recorded in `src/registry/program_ids/localnet.txt` |
+| **Lean 4 proofs** | `sorry`-free build of state-machine invariants, `slash_sound`, certificate-threshold soundness, and the Shamir/Lagrange reconstruction proof contract under `src/lean/AnonymousForum/` |
+| **Forum-agnostic SDK** | `moderation-sdk` exposes `ForumSdk` + `OffchainStore` + `RetryQueue` traits; never assumes content shape; namespaced storage and retry queue documented in `src/docs/api.md` |
+| **Two independent forums** | `src/scripts/demo_e2e.py` exercises Forum A (K=2, N=2-of-3) and Forum B (K=3, N=1-of-2) end-to-end including slash, revocation, post-after-revocation rejection, and retroactive linkability |
+| **Basecamp app** | 9-screen QML flow + Rust C-ABI core-module bridge over `moderation-sdk`. Packaged as `lp0016-anon-forum-demo.lgx` via `src/scripts/package_basecamp.sh` |
+| **Narrated demo video** | [`submission/lp0016-demo.mp4`](submission/lp0016-demo.mp4) — 1280×720 H.264/AAC, ~2 min, narrated walkthrough of architecture and full lifecycle |
+| **Optional Noir circuit** | `src/noir/post_binding/` — additive ACIR/Nargo circuit for the post-binding relation, runnable with `nargo test` |
+
+## Quick verification commands
 
 ```bash
 cd src
-scripts/local_submission_gate.py
-python3 scripts/collect_localnet_evidence.py
-python3 scripts/check_noir_icing.py --pretty
-python3 scripts/make_submission_video.py
-python3 scripts/demo_e2e.py
-python3 -m unittest scripts/test_protocol.py
-cargo build --workspace
-cargo test --workspace
-cargo run -p registry-sim
-cd lean && lake build
+scripts/local_submission_gate.py                                # full gate
+python3 scripts/demo_e2e.py                                     # Python lifecycle demo (no deps)
+python3 -m unittest scripts/test_protocol.py                    # protocol unit tests
+cargo build --workspace                                         # Rust workspace build
+cargo test --workspace                                          # Rust test suite (49+ tests)
+RISC0_DEV_MODE=0 scripts/demo_e2e.sh                            # real RISC0 host integration
+python3 scripts/check_risc0_proof_performance.py --run-prover --fail-on-blocked
+python3 scripts/collect_localnet_evidence.py                    # local sequencer deploy + demo
+cd lean && lake build                                           # Lean proofs (sorry-free)
 ```
 
-GitHub Actions is not the acceptance gate for this repository because hosted
-jobs are blocked before startup by account billing/spending limits. Use the
-local submission gate and `src/docs/submission.md` for hackathon evidence.
+## Proof-stack overview
 
-Submission evidence:
+- **RISC0** — primary ZK proof path. The membership guest proves registered membership and revocation non-membership against published Merkle roots. The host crate is feature-gated so the default workspace build doesn't need `cargo-risczero`.
+- **Lean 4** — mechanically checked protocol invariants: certificate thresholds, slash-bundle shape, revocation activity, and the Shamir/Lagrange reconstruction contract. Cryptographic primitives (hashes, signatures, threshold ElGamal, RISC0 receipts) are stated as assumptions.
+- **Noir** — optional ACIR/Nargo circuit covering the anonymous-post binding relation. Documented in `src/docs/noir.md`.
 
-- Local gate: `cd src && scripts/local_submission_gate.py`
-- Local sequencer deploy/RISC0 evidence: `cd src && python3 scripts/collect_localnet_evidence.py`
-- RISC0 proof performance: `cd src && python3 scripts/check_risc0_proof_performance.py --run-prover --fail-on-blocked`
-- Optional Noir circuit check: `cd src && python3 scripts/check_noir_icing.py --pretty`
-- Basecamp clean-shell artifact diagnostic: `cd src && python3 scripts/check_basecamp_inspector.py --pretty`
-- Basecamp inspector verification, when an inspector-enabled app is available:
-  `cd src && python3 scripts/check_basecamp_inspector.py --run-click-through --pretty`
-- Narrated demo video: [submission/lp0016-demo.mp4](submission/lp0016-demo.mp4)
-- Video generator: `cd src && python3 scripts/make_submission_video.py`
-- Evidence JSON: `src/dist/submission/evidence.json`
-- Localnet evidence JSON: `src/dist/submission/localnet_evidence.json`
-- RISC0 proof performance JSON: `src/dist/submission/risc0_proof_performance.json`
-- Localnet registry image ID: `dd914ffd8202da7c363d0aa7d9ad6222d1638b79f63a13f5dd24109896817e30`
-- Program ID files: `src/registry/program_ids/`
+### Lean 4 modules
 
-Current blockers:
+- `Basic.lean` — abstract forum model: forum parameters `K`/`N`, moderator membership, certificates, slash bundles, registry state, active commitments, revoke transition.
+- `Invariants.lean` — core structural invariants: valid certificates meet the `N` threshold, every signer is a moderator, valid slash bundles carry exactly `K` valid certificates, revoked commitments are no longer active.
+- `Slash.lean` — `VerifySlash` and `slash_sound`: a verified slash implies the commitment was registered, was not already revoked, and the bundle has exactly `K` certificates; every certificate meets the `N` signer threshold.
+- `Shamir.lean` — `ShamirSystem` proof contract for the Lagrange-reconstruction layer; the Rust implementation supplies the concrete field/interpolation behavior. `ShamirTargets.lean` keeps a compatibility theorem name.
 
-- CU measurements for `register_member` and `slash_member`: the registry guest
-  deploys to the local sequencer, but the current scaffold/wallet path does not
-  expose a custom deployed-program invoke command or CU report for those two
-  instructions. `cd src && scripts/measure_cu.sh` records the narrowed blocker.
-- Public LEZ devnet/testnet evidence, only if reviewers require separate public
-  network endpoints: the official LEZ wallet quickstart documents a standalone
-  local sequencer at `localhost:3040`, and this repo has local sequencer deploy
-  evidence for that path. Separate public-network proof still needs
-  `LOGOS_LEZ_DEVNET_URL`, `LOGOS_LEZ_TESTNET_URL`, and program IDs in
-  `src/registry/program_ids/devnet.txt` and `src/registry/program_ids/testnet.txt`.
-- Full Basecamp runtime click-through in a clean shell: artifact discovery is
-  now durable and no longer relies on `/tmp`. `check_basecamp_inspector.py`
-  searches `LOGOS_BASECAMP_CACHE`, `~/.cache/logos-basecamp`, and explicit
-  `LOGOS_BASECAMP_APP` / `LOGOS_QT_MCP` / `LOGOS_DESIGN_SYSTEM_ROOT` values
-  before legacy scratch paths. The public `logos-basecamp` v0.1.1 DMG and the
-  current action-built app provide durable runtime binaries, but they do not
-  expose the QML inspector endpoint used by `app/basecamp-forum/ui-tests.mjs`.
-  Final click-through evidence therefore still needs an inspector-enabled
-  Basecamp build and a successful
-  `cd src && python3 scripts/check_basecamp_inspector.py --run-click-through --pretty`.
+## Repository layout
 
-The local lifecycle covers forum creation, anonymous registration, anonymous
-posting, N-of-M moderation, K-certificate slash, revocation, and retroactive
-linking only for the slashed member. Basecamp packaging is included in the
-local gate; clean-shell artifact discovery now works from durable cache/env
-locations, while full Basecamp click-through needs an inspector-enabled
-Basecamp runtime plus `logos-qt-mcp` and Logos design-system QML artifacts.
+```text
+src/crates/protocol-core      Pure protocol state machine: field, Shamir, certs, slash, threshold ElGamal, Merkle
+src/crates/moderation-sdk     Forum-agnostic SDK facade and storage abstraction
+src/crates/registry-sim       Local registry simulation binary (emits JSON consumed by slash-verifier)
+src/crates/slash-verifier     CLI + library for slash-bundle verification
+src/crates/risc0-statement    Pure RISC0 guest statement (CPU-tested, links into the guest)
+src/registry/lp0016-registry  LEZ/SPEL registry crate
+src/methods/guest             Deployable lez-framework RISC0 guest
+src/zk/membership-host        Feature-gated RISC0 host integration
+src/zk/membership-guest       Feature-gated RISC0 guest
+src/app/basecamp-forum        Basecamp QML flow + Rust core-module bridge
+src/lean/AnonymousForum       Lean 4 proof modules (sorry-free)
+src/noir/post_binding         Optional Noir post-binding circuit
+src/scripts                   Demos, success-criteria tests, runtime diagnostics, submission gate
+src/docs                      protocol.md, api.md, threat-model.md, performance.md, submission.md
+submission                    Narrated demo video and submission README
+```
 
-Lean 4 usage:
+## Submission artifacts
 
-- Lean is used as a formal proof surface for the protocol invariants, not as
-  application runtime code. The modules live under `src/lean/AnonymousForum/`
-  and are verified by `cd src/lean && lake build`, which is part of the local
-  verification story.
-- `Basic.lean` defines the abstract forum model: forum parameters `K` and `N`,
-  moderator membership, certificates, slash bundles, registry state, active
-  commitments, and the revoke transition.
-- `Invariants.lean` proves the core structural invariants: valid certificates
-  meet the `N` threshold, every signer is a moderator, valid slash bundles carry
-  exactly `K` valid certificates, and revoked commitments are no longer active.
-- `Slash.lean` defines `VerifySlash` and proves `slash_sound`: a verified slash
-  implies the commitment was registered, was not already revoked, and has a
-  bundle with exactly `K` certificates. It also proves every certificate in a
-  verified slash meets the `N` signer threshold.
-- `Shamir.lean` defines the `ShamirSystem` proof contract for the
-  Lagrange-reconstruction layer. The Rust implementation supplies the concrete
-  field/interpolation behavior; Lean pins the downstream theorem shape via
-  `lagrange_reconstructs_original_polynomial`. `ShamirTargets.lean` keeps a
-  compatibility theorem name for this target.
-- The Lean build is `sorry`-free. It is intentionally compact: Rust carries the
-  production cryptography and execution, while Lean makes the threshold,
-  slash, and revocation proof obligations explicit and mechanically checked.
+- Local gate report: `src/dist/submission/evidence.json`
+- Localnet deploy + RISC0 evidence: `src/dist/submission/localnet_evidence.json`
+- RISC0 proof performance: `src/dist/submission/risc0_proof_performance.json`
+- Localnet registry image ID: `src/registry/program_ids/localnet.txt`
+- Narrated demo video: [`submission/lp0016-demo.mp4`](submission/lp0016-demo.mp4)
+- Submission walkthrough doc: `src/docs/submission.md`
 
-Noir icing:
+GitHub Actions is intentionally not the acceptance gate because hosted jobs are blocked before startup by account billing/spending limits. The local gate is reproducible from a clean clone.
 
-- Noir is added as an optional proof-circuit artifact under
-  `src/noir/post_binding/`. It does not replace RISC0; it gives reviewers a
-  compact ACIR/Nargo circuit for the anonymous-post binding shape. The dedicated
-  write-up is `src/docs/noir.md`.
-- The circuit keeps `member_secret` and `opening` private while constraining the
-  public `registered_commitment`, `post_nullifier`, and `post_retro_tag` against
-  the forum/slash domains and post nonce. This mirrors the core relation the app
-  needs: a post is tied to a registered member secret without revealing that
-  secret, and the public tags remain deterministic for verification/slash logic.
-- The circuit intentionally uses small arithmetic constraints rather than the
-  production hash/Merkle/threshold crypto. Those production pieces remain in the
-  Rust/RISC0 path; Noir is the small, easy-to-review proof layer on top.
-- Run it with `cd src/noir/post_binding && nargo test`. If Nargo is not
-  installed, `cd src && python3 scripts/check_noir_icing.py --pretty` reports the
-  exact install blocker and links the official Noir installation/test docs.
+## Remaining external blockers (transparent accounting)
+
+These three items are blocked by external runtimes, not by the protocol or implementation. Each has a structured local diagnostic that reports the exact missing artifact.
+
+1. **CU costs for `register_member` / `slash_member`** — local registry deploy succeeds; the current `logos-scaffold`/`wallet` path exposes no custom-invoke or CU-report command for those instructions. `src/scripts/measure_cu.sh` emits the narrowed JSON blocker.
+2. **Public LEZ devnet/testnet program IDs** — the official LEZ wallet quickstart documents standalone local-sequencer usage at `localhost:3040` and does not publish public devnet/testnet RPC URLs. If reviewers accept the official local-sequencer path, `localnet_evidence.json` and `registry/program_ids/localnet.txt` cover deployment; otherwise `src/scripts/check_live_network_deploy.py` reports the env vars and program-ID files still needed.
+3. **Basecamp QML inspector click-through in a clean shell** — artifact discovery is durable from `LOGOS_BASECAMP_CACHE`/`~/.cache/logos-basecamp`, and `app/basecamp-forum/ui-tests.mjs` defines the LP-0016 click-through flow. The public `logos-basecamp` v0.1.1 DMG and the current action-built app do not expose the QML inspector endpoint; a locally built inspector-enabled Basecamp app passes click-through. `src/scripts/check_basecamp_inspector.py` reports the narrowed blocker as JSON.
+
+## Further reading
+
+- Protocol specification: `src/docs/protocol.md`
+- Implementation spec and engineering decisions: `src/SPEC.md`
+- API reference: `src/docs/api.md`
+- Threat model: `src/docs/threat-model.md`
+- Performance plan and numbers: `src/docs/performance.md`
+- Status and history: `STATUS.md`, `REPO.md`
