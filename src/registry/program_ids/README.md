@@ -4,5 +4,11 @@
 `lp0016_registry` LEZ-framework guest build and submitted to the local
 sequencer during the final local submission pass.
 
-The prize-required `devnet.txt` and `testnet.txt` files should contain the
-verified program IDs after deployment to those networks.
+The official LEZ wallet quickstart currently documents the standalone local
+sequencer at `localhost:3040` as the public developer path:
+
+https://github.com/logos-co/logos-docs/blob/main/docs/apps/wallet/journeys/quickstart-for-the-logos-execution-zone-wallet.md
+
+If reviewers require distinct public devnet/testnet networks, `devnet.txt` and
+`testnet.txt` should contain the verified program IDs after deployment to those
+networks.

@@ -100,6 +100,15 @@ class RuntimeCheckTests(unittest.TestCase):
         self.assertIn("localnet_evidence", text)
         self.assertIn("deploy", text)
 
+    def test_live_network_check_reports_official_local_sequencer_context(self):
+        report = self.run_json_script("check_live_network_deploy.py")
+
+        self.assertIn("official_local_sequencer", report)
+        self.assertIn("localhost:3040", report["official_local_sequencer"]["note"])
+        self.assertEqual(report["official_local_sequencer"]["rpc"], "http://127.0.0.1:3040")
+        self.assertIn("quickstart", report["official_local_sequencer"]["doc"])
+        self.assertIn("reviewer_acceptance_note", report)
+
 
 if __name__ == "__main__":
     unittest.main()

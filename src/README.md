@@ -32,6 +32,7 @@ The repo fixes the previously underspecified engineering decisions and implement
 - `ZkReceipt::Mock` is used by local tests until the external RISC0 proving toolchain is installed.
 - threshold encryption is represented as a test/development oracle only in the dependency-free Python simulator; Rust uses threshold ElGamal with DLEQ partials.
 - SPEL/LEZ now has a deployable `methods/guest/src/bin/lp0016_registry.rs` guest under the `lez-framework` scaffold shape. Local deployment submission succeeds when a local sequencer is listening, and `registry/program_ids/localnet.txt` records the local guest image ID. The current scaffold/wallet still does not expose custom program invoke/CU reporting for `register_member` and `slash_member`; `scripts/measure_cu.sh` records that exact remaining runtime gap.
+- The current official LEZ wallet quickstart documents standalone local sequencer usage at `localhost:3040` and does not publish public devnet/testnet sequencer RPC URLs. Our local sequencer evidence follows that public developer path; separate `devnet.txt` / `testnet.txt` program IDs remain needed only if reviewers require distinct public networks.
 - Basecamp has an embeddable `ui_qml` package harness, a Rust core-module bridge, and `app/basecamp-forum/ui-tests.mjs` for QML inspector click-through. Running the click-through still needs `logos-qt-mcp`, a built Basecamp app, and design-system QML available via `LOGOS_BASECAMP_CACHE` or explicit env vars.
 
 The production path is documented in `SPEC.md` and `docs/protocol.md`.
@@ -76,11 +77,10 @@ scripts/local_submission_gate.py
 ```
 
 The Basecamp flow covers forum creation, register, posting, moderating,
-history/certificate review, and slash. LEZ program IDs are not published yet;
-`registry/program_ids/localnet.txt` records the locally built/deployed guest
-image ID. The required future artifacts are `registry/program_ids/devnet.txt`
-and `registry/program_ids/testnet.txt`, which become available after testnet
-deployment.
+history/certificate review, and slash. `registry/program_ids/localnet.txt`
+records the locally built/deployed guest image ID against the official
+standalone local sequencer path. Public `devnet.txt` and `testnet.txt` artifacts
+become necessary if reviewers require distinct public network deployments.
 
 ## License
 

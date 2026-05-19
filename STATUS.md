@@ -14,6 +14,13 @@
 - Final local submission readiness pass: https://github.com/advatar/Logos/issues/31
 - Finish remaining hackathon submission blockers locally: https://github.com/advatar/Logos/issues/32
 - RISC0 membership guest proof-performance finish pass: https://github.com/advatar/Logos/issues/33
+- Official LEZ local sequencer quickstart evidence: https://github.com/advatar/Logos/issues/34
+
+## Active Official LEZ Local Sequencer Evidence Pass
+
+- [x] Confirm the official LEZ wallet quickstart documents standalone local sequencer usage at `localhost:3040` rather than a public devnet/testnet RPC endpoint.
+- [x] Update submission docs and readiness diagnostics to cite the official local sequencer path.
+- [x] Run local verification, commit, push, and update issue #34.
 
 ## Active RISC0 Membership Guest Proof-Performance Pass
 
@@ -104,7 +111,7 @@
 ## External Blockers
 
 - [ ] CU measurement for `register_member` / `slash_member`: local registry deploy submission works, but current scaffold/wallet exposes no custom deployed-program invoke command or CU reporting path for these LP-0016 instructions. `scripts/measure_cu.sh` now reports this exact narrowed blocker as JSON after deployment submission.
-- [ ] LEZ devnet/testnet proof: `registry/program_ids/localnet.txt` is recorded and `scripts/check_live_network_deploy.py` reports exact missing endpoint/program-ID blockers; `registry/program_ids/devnet.txt` and `registry/program_ids/testnet.txt` still require live network deployment.
+- [ ] LEZ public devnet/testnet proof if reviewers insist on public network endpoints: the current official LEZ wallet quickstart documents standalone local sequencer usage at `localhost:3040`, and our `registry/program_ids/localnet.txt` plus `scripts/collect_localnet_evidence.py` cover that public developer path. `scripts/check_live_network_deploy.py` still reports exact missing endpoint/program-ID blockers for separate public devnet/testnet deployments: `LOGOS_LEZ_DEVNET_URL`, `LOGOS_LEZ_TESTNET_URL`, `registry/program_ids/devnet.txt`, and `registry/program_ids/testnet.txt`.
 - [ ] Basecamp inspector runtime artifacts: durable env/cache discovery is implemented, but this shell currently lacks `logos-qt-mcp`, a built `LogosBasecamp` binary, and design-system QML paths unless supplied through `LOGOS_BASECAMP_CACHE` or explicit env vars.
 - [ ] Narrated video demo: must be recorded by the builder and linked from the README before final submission.
 

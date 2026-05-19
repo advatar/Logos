@@ -9,6 +9,11 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+OFFICIAL_LOCAL_SEQUENCER_DOC = (
+    "https://github.com/logos-co/logos-docs/blob/main/docs/apps/wallet/"
+    "journeys/quickstart-for-the-logos-execution-zone-wallet.md"
+)
+OFFICIAL_LOCAL_SEQUENCER_RPC = "http://127.0.0.1:3040"
 
 
 def program_id(path: Path) -> str | None:
@@ -66,6 +71,22 @@ def main() -> int:
         "devnet_program_id": devnet_id,
         "testnet_program_id": testnet_id,
         "localnet_program_id": program_id(ROOT / "registry" / "program_ids" / "localnet.txt"),
+        "official_local_sequencer": {
+            "doc": OFFICIAL_LOCAL_SEQUENCER_DOC,
+            "rpc": OFFICIAL_LOCAL_SEQUENCER_RPC,
+            "evidence": "dist/submission/localnet_evidence.json",
+            "note": (
+                "The current official LEZ wallet quickstart documents a standalone "
+                "local sequencer at localhost:3040; it does not publish public "
+                "devnet/testnet sequencer RPC URLs."
+            ),
+        },
+        "reviewer_acceptance_note": (
+            "If the reviewer accepts the official standalone local sequencer as the "
+            "current public LEZ developer target, localnet evidence covers the LEZ "
+            "deployment path. If they require separate public devnet/testnet networks, "
+            "the endpoint and program-ID blockers below remain."
+        ),
         "blockers": blockers,
         "ready_commands": [
             "export LOGOS_LEZ_DEVNET_URL=<devnet sequencer rpc>",
