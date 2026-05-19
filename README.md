@@ -2,7 +2,7 @@
 
 A complete submission for [LP-0016](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0016.md): a forum-agnostic moderation library with K-strike slashing built on the Logos stack, plus a Basecamp app demonstrating the full lifecycle. Posts are anonymous and unlinkable until a member accumulates K moderation certificates; reconstruction then triggers an on-chain slash and retroactive linkability of *only* that member's prior posts.
 
-License: MIT or Apache-2.0 at your option. See `src/LICENSE-MIT` and `src/LICENSE-APACHE`.
+License: MIT. See `LICENSE`.
 
 ## One-command evaluator gate
 
@@ -45,7 +45,7 @@ cd lean && lake build                                           # Lean proofs (s
 ## Proof-stack overview
 
 - **RISC0** — primary ZK proof path. The membership guest proves registered membership and revocation non-membership against published Merkle roots. The host crate is feature-gated so the default workspace build doesn't need `cargo-risczero`.
-- **Lean 4** — mechanically checked protocol invariants: certificate thresholds, slash-bundle shape, revocation activity, and the Shamir/Lagrange reconstruction contract. Cryptographic primitives (hashes, signatures, threshold ElGamal, RISC0 receipts) are stated as assumptions.
+- **Lean 4** — mechanically checked protocol invariants: certificate thresholds, slash-bundle shape, revocation activity, and the Shamir/Lagrange reconstruction contract. `Shamir.lean` also includes a concrete dependency-free affine interpolation sanity theorem, while production finite-field interpolation remains in Rust. Cryptographic primitives (hashes, signatures, threshold ElGamal, RISC0 receipts) are stated as assumptions.
 - **Noir** — optional ACIR/Nargo circuit covering the anonymous-post binding relation. Documented in `src/docs/noir.md`.
 
 ### Lean 4 modules
@@ -53,7 +53,7 @@ cd lean && lake build                                           # Lean proofs (s
 - `Basic.lean` — abstract forum model: forum parameters `K`/`N`, moderator membership, certificates, slash bundles, registry state, active commitments, revoke transition.
 - `Invariants.lean` — core structural invariants: valid certificates meet the `N` threshold, every signer is a moderator, valid slash bundles carry exactly `K` valid certificates, revoked commitments are no longer active.
 - `Slash.lean` — `VerifySlash` and `slash_sound`: a verified slash implies the commitment was registered, was not already revoked, and the bundle has exactly `K` certificates; every certificate meets the `N` signer threshold.
-- `Shamir.lean` — `ShamirSystem` proof contract for the Lagrange-reconstruction layer; the Rust implementation supplies the concrete field/interpolation behavior. `ShamirTargets.lean` keeps a compatibility theorem name.
+- `Shamir.lean` — `ShamirSystem` proof contract for the Lagrange-reconstruction layer plus a concrete affine reconstruction theorem over Lean `Int`; the Rust implementation supplies the production finite-field interpolation behavior. `ShamirTargets.lean` keeps a compatibility theorem name.
 
 ## Repository layout
 
@@ -82,6 +82,7 @@ submission                    Narrated demo video and submission README
 - RISC0 proof performance: `src/dist/submission/risc0_proof_performance.json`
 - Localnet registry image ID: `src/registry/program_ids/localnet.txt`
 - Narrated demo video: [`submission/lp0016-demo.mp4`](submission/lp0016-demo.mp4)
+- Video generator: `src/scripts/make_submission_video.py`
 - Submission walkthrough doc: `src/docs/submission.md`
 
 GitHub Actions is intentionally not the acceptance gate because hosted jobs are blocked before startup by account billing/spending limits. The local gate is reproducible from a clean clone.
@@ -102,3 +103,13 @@ These three items are blocked by external runtimes, not by the protocol or imple
 - Threat model: `src/docs/threat-model.md`
 - Performance plan and numbers: `src/docs/performance.md`
 - Status and history: `STATUS.md`, `REPO.md`
+
+## Related Prize Resources
+
+- [LP-0016 original prize text](HACK.md)
+- [Logos Execution Zone repo](https://github.com/logos-blockchain/logos-execution-zone)
+- [Semaphore — group membership and ZK proofs](https://semaphore.pse.dev/)
+- [Shamir's Secret Sharing — How to Share a Secret](https://cacm.acm.org/research/how-to-share-a-secret/)
+- [Threshold decryption overview — Boneh and Shoup, A Graduate Course in Applied Cryptography](https://crypto.stanford.edu/~dabo/cryptobook/BonehShoup_0_6.pdf)
+- [LP-0001 — Private NFT Ownership Proof](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0001.md)
+- [LP-0003 — Private Allowlist / Airdrop Distributor](https://github.com/logos-co/lambda-prize/blob/master/prizes/LP-0003.md)

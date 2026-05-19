@@ -21,6 +21,16 @@
 - Clean-shell Basecamp runtime artifacts: https://github.com/advatar/Logos/issues/38
 - Repository MIT license update: https://github.com/advatar/Logos/issues/39
 - README inline submission video link: https://github.com/advatar/Logos/issues/40
+- Final hackathon polish: prize spec, README license, Lean note: https://github.com/advatar/Logos/issues/41
+
+## Active Final Hackathon Polish Pass
+
+- [x] Reassess the latest verdict and identify concrete pre-submission cleanup items.
+- [x] Commit the LP-0016 prize/spec reference instead of leaving `HACK.md` untracked.
+- [x] Correct the README license line so it matches the repository MIT license.
+- [x] Reassess the Lean Shamir Mathlib suggestion without destabilizing the local gate.
+- [x] Add evaluator-facing working links for the LP-0016 resources whose `ns.com` entries were broken/truncated.
+- [x] Run local verification, commit, push, and update issue #41.
 
 ## Active README Inline Video Link Pass
 
@@ -167,6 +177,8 @@
 ## Current Verification
 
 - `cd src && python3 -m unittest scripts.test_runtime_checks.RuntimeCheckTests.test_submission_video_is_documented_and_reproducible && cargo build --workspace`: passed.
+- `cd src && python3 -m unittest scripts/test_runtime_checks.py scripts/test_success_criteria.py scripts/test_phase_closure.py && cd lean && lake env lean AnonymousForum/Shamir.lean && lake build`: passed, 33 Python tests plus direct Lean Shamir check and Lean build.
+- `cd src && scripts/local_submission_gate.py`: passed and wrote `dist/submission/evidence.json` with all 17 local gate steps green after final polish.
 - `cd src && cargo metadata --no-deps --format-version 1 >/tmp/logos-license-metadata.json && cargo build --workspace`: passed.
 - `cd src && cargo check --manifest-path zk/membership-host/Cargo.toml`: passed.
 - `cd src && rustup run stable cargo check --manifest-path zk/membership-guest/Cargo.toml && cargo +stable check --manifest-path methods/guest/Cargo.toml`: passed.
@@ -213,6 +225,6 @@
 ## Notes
 
 - The dependency-free Python simulator intentionally remains a structural reference using dev crypto; production crypto lives in Rust.
-- The Lean Shamir module currently exposes a `ShamirSystem` proof contract rather than a Mathlib-backed concrete finite-field polynomial development. It is `sorry`-free and keeps downstream theorem names stable.
+- The Lean Shamir module exposes a `ShamirSystem` proof contract rather than adding a late Mathlib-backed finite-field dependency. It now also includes a concrete dependency-free affine reconstruction theorem over Lean `Int`, remains `sorry`-free, and keeps downstream theorem names stable.
 - Generated local artifacts remain ignored: `target/`, `.lake/`, `.scaffold/`, and Python `__pycache__/`.
 - Nix was not installed in this pass because the macOS installer requires sudo/root and `sudo -n true` fails without a password; the Basecamp path is unblocked with manually built artifacts instead.
