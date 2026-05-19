@@ -268,11 +268,13 @@
       "category": "Supportability",
       "title": "Narrated recorded video demo",
       "issue": "https://github.com/advatar/Logos/issues/28",
-      "current_status": "submission_artifact_required",
+      "current_status": "local_artifact",
       "criterion": "Submission includes narrated video showing architecture, decisions, full lifecycle, terminal output, proof generation, and RISC0_DEV_MODE=0.",
       "proofs": [
         {"kind": "unit", "path": "scripts/test_success_criteria.py", "name": "test_success_matrix_has_all_criteria_issues_and_proofs"},
-        {"kind": "artifact", "path": "README.md", "name": "demo video link after recording"}
+        {"kind": "artifact", "path": "../submission/lp0016-demo.mp4", "name": "narrated demo video"},
+        {"kind": "script", "path": "scripts/make_submission_video.py", "name": "reproducible video generator"},
+        {"kind": "artifact", "path": "../submission/README.md", "name": "video artifact notes"}
       ]
     }
   ]

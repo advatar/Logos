@@ -1,0 +1,6 @@
+[package]
+name = "lp0016_post_binding"
+type = "bin"
+authors = ["advatar"]
+
+[dependencies]

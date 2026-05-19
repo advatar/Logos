@@ -15,6 +15,32 @@
 - Finish remaining hackathon submission blockers locally: https://github.com/advatar/Logos/issues/32
 - RISC0 membership guest proof-performance finish pass: https://github.com/advatar/Logos/issues/33
 - Official LEZ local sequencer quickstart evidence: https://github.com/advatar/Logos/issues/34
+- Top-level README blocker and Lean proof-surface documentation: https://github.com/advatar/Logos/issues/35
+- Optional Noir proof-circuit icing: https://github.com/advatar/Logos/issues/36
+- Narrated submission video generation: https://github.com/advatar/Logos/issues/37
+
+## Active Narrated Submission Video Pass
+
+- [x] Assess local video tooling and open submission issues.
+- [x] Install or use a local video encoder path.
+- [x] Add a reproducible narrated-video generator and produce the MP4 artifact.
+- [x] Update README/status/issues so the video is no longer an open blocker.
+- [x] Run local verification, commit, push, and close/update all issues that this pass resolves.
+
+## Active Optional Noir Proof-Circuit Pass
+
+- [x] Confirm no Noir package or `nargo` tool is currently present in the repo/shell.
+- [x] Add an optional Noir circuit and structured local diagnostic.
+- [x] Document Noir as additive icing in `README.md`, separate from the RISC0 submission path.
+- [x] Expand Noir documentation with a dedicated docs page and top-level README highlight.
+- [x] Run local verification, commit, push, and update issue #36.
+
+## Active README Blocker And Lean Documentation Pass
+
+- [x] Assess current top-level README, blocker state, and Lean proof modules.
+- [x] Add explicit remaining blocker documentation to `README.md`.
+- [x] Add concise explanation of how Lean 4 is used in the solution.
+- [x] Run local verification, commit, push, and update issue #35.
 
 ## Active Official LEZ Local Sequencer Evidence Pass
 
@@ -113,13 +139,12 @@
 - [ ] CU measurement for `register_member` / `slash_member`: local registry deploy submission works, but current scaffold/wallet exposes no custom deployed-program invoke command or CU reporting path for these LP-0016 instructions. `scripts/measure_cu.sh` now reports this exact narrowed blocker as JSON after deployment submission.
 - [ ] LEZ public devnet/testnet proof if reviewers insist on public network endpoints: the current official LEZ wallet quickstart documents standalone local sequencer usage at `localhost:3040`, and our `registry/program_ids/localnet.txt` plus `scripts/collect_localnet_evidence.py` cover that public developer path. `scripts/check_live_network_deploy.py` still reports exact missing endpoint/program-ID blockers for separate public devnet/testnet deployments: `LOGOS_LEZ_DEVNET_URL`, `LOGOS_LEZ_TESTNET_URL`, `registry/program_ids/devnet.txt`, and `registry/program_ids/testnet.txt`.
 - [ ] Basecamp inspector runtime artifacts: durable env/cache discovery is implemented, but this shell currently lacks `logos-qt-mcp`, a built `LogosBasecamp` binary, and design-system QML paths unless supplied through `LOGOS_BASECAMP_CACHE` or explicit env vars.
-- [ ] Narrated video demo: must be recorded by the builder and linked from the README before final submission.
 
 ## Current Verification
 
 - `cd src && python3 scripts/demo_e2e.py`: passed.
 - `cd src && python3 -m unittest scripts/test_protocol.py scripts/test_basecamp_package.py scripts/test_runtime_checks.py scripts/test_success_criteria.py scripts/test_phase_closure.py`: passed, 40 tests.
-- `cd src && python3 -m unittest scripts/test_runtime_checks.py scripts/test_success_criteria.py`: passed, 20 tests.
+- `cd src && python3 -m unittest scripts/test_runtime_checks.py scripts/test_success_criteria.py`: passed, 22 tests.
 - `cd src && python3 -m unittest scripts/test_phase_closure.py`: passed, 9 tests.
 - `cd src && python3 -m json.tool docs/success_criteria.json`: passed.
 - `cd src && cargo build --workspace`: passed.
@@ -142,7 +167,11 @@
 - `cd src && ~/.cargo/bin/logos-scaffold deploy lp0016_registry --program-path methods/target/riscv32im-risc0-zkvm-elf/docker/lp0016_registry.bin --json`: passed and returned `{"status":"submitted","program":"lp0016_registry","tx":null}`.
 - `cd src && python3 scripts/collect_localnet_evidence.py`: passed and wrote `dist/submission/localnet_evidence.json` with local sequencer runtime `ready`, deploy submission ok, and `RISC0_DEV_MODE=0` demo ok.
 - `cd src && python3 scripts/check_live_network_deploy.py`: passed script execution and reports structured blockers for missing `LOGOS_LEZ_DEVNET_URL`, `LOGOS_LEZ_TESTNET_URL`, `registry/program_ids/devnet.txt`, and `registry/program_ids/testnet.txt`.
-- `cd src && scripts/local_submission_gate.py`: passed and wrote `dist/submission/evidence.json` with all required local steps green, including `risc0_proof_performance` and `localnet_evidence`; optional Basecamp runtime, live-network, and CU diagnostics still report the external artifact/custom invoke blockers.
+- `cd src && python3 scripts/check_noir_icing.py --pretty`: passed with `nargo 1.0.0-beta.21` from `~/.nargo/bin`; the optional Noir post-binding circuit ran 2 tests.
+- `cd src/noir/post_binding && ~/.nargo/bin/nargo test`: passed, 2 Noir tests.
+- `cd src && python3 scripts/make_submission_video.py`: passed and wrote `../submission/lp0016-demo.mp4`, a 1280x720 H.264/AAC narrated video of about 119 seconds.
+- `ffprobe -v error -show_entries format=duration,size -of json submission/lp0016-demo.mp4`: passed, duration `119.163084`, size `2337882`.
+- `cd src && scripts/local_submission_gate.py`: passed and wrote `dist/submission/evidence.json` with all required local steps green, including `risc0_proof_performance` and `localnet_evidence`; optional Noir diagnostic is ready, while optional Basecamp runtime, live-network, and CU diagnostics still report the external artifact/custom invoke blockers.
 - `cd src && cargo risczero --version`: passed, `cargo-risczero 3.0.5`.
 - `cd src && ~/.cargo/bin/rzup --version && ~/.cargo/bin/r0vm --version`: passed, `rzup 0.5.1` and `risc0-r0vm 3.0.5`.
 - `cd src && ~/.cargo/bin/logos-scaffold doctor`: reported 13 PASS, 4 WARN, 0 FAIL with localnet not running; remaining WARNs are LEZ cache working tree dirty plus sequencer/localnet reachability.

@@ -1,0 +1,8 @@
+member_secret = "11"
+opening = "7"
+forum_domain = "5"
+slash_domain = "13"
+post_nonce = "17"
+registered_commitment = "128"
+post_nullifier = "72"
+post_retro_tag = "160"

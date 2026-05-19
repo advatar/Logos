@@ -211,6 +211,7 @@ class SuccessCriteriaMatrixTests(unittest.TestCase):
                 entry["current_status"],
                 {
                     "local_proof",
+                    "local_artifact",
                     "runtime_ready_check",
                     "external_runtime_required",
                     "submission_artifact_required",
@@ -283,6 +284,7 @@ class SuccessCriteriaMatrixTests(unittest.TestCase):
         self.assertIn("test_runtime_checks.py", gate)
         self.assertIn("measure_cu.sh", gate)
         self.assertIn("check_risc0_proof_performance.py", gate)
+        self.assertIn("check_noir_icing.py", gate)
         self.assertIn("RISC0_DEV_MODE", localnet)
         self.assertIn("localnet_evidence", localnet)
 
@@ -292,6 +294,7 @@ class SuccessCriteriaMatrixTests(unittest.TestCase):
             ("check_basecamp_inspector.py", "basecamp_qml_inspector"),
             ("check_live_network_deploy.py", "live_lez_deployment"),
             ("check_risc0_proof_performance.py", "risc0_proof_performance"),
+            ("check_noir_icing.py", "noir_icing"),
         ]:
             output = subprocess.check_output(
                 ["python3", str(ROOT / "scripts" / script)],

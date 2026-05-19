@@ -154,6 +154,12 @@ def build_steps(skip_slow: bool) -> list[dict]:
             "required": False,
             "parse_json": True,
         },
+        {
+            "name": "noir_icing_diagnostic",
+            "cmd": ["python3", "scripts/check_noir_icing.py"],
+            "required": False,
+            "parse_json": True,
+        },
     ]
     if skip_slow:
         skip_names = {

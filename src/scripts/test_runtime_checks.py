@@ -82,6 +82,7 @@ class RuntimeCheckTests(unittest.TestCase):
         self.assertIn("check_risc0_proof_performance.py", text)
         self.assertIn("scripts/check_lez_runtime.py", text)
         self.assertIn("scripts/check_basecamp_inspector.py", text)
+        self.assertIn("scripts/check_noir_icing.py", text)
 
     def test_risc0_proof_performance_check_reports_structured_status(self):
         report = self.run_json_script("check_risc0_proof_performance.py")
@@ -108,6 +109,30 @@ class RuntimeCheckTests(unittest.TestCase):
         self.assertEqual(report["official_local_sequencer"]["rpc"], "http://127.0.0.1:3040")
         self.assertIn("quickstart", report["official_local_sequencer"]["doc"])
         self.assertIn("reviewer_acceptance_note", report)
+
+    def test_noir_icing_check_reports_structured_status(self):
+        report = self.run_json_script("check_noir_icing.py")
+
+        self.assertIn(report["status"], {"ready", "blocked"})
+        self.assertEqual(report["target"], "noir_icing")
+        self.assertEqual(report["package"], "noir/post_binding")
+        self.assertIn("RISC0 remains", report["note"])
+        self.assertIn("installation", report["docs"])
+        self.assertIsInstance(report["blockers"], list)
+
+    def test_submission_video_is_documented_and_reproducible(self):
+        readme = (ROOT.parent / "README.md").read_text()
+        script = (ROOT / "scripts" / "make_submission_video.py").read_text()
+        criteria = json.loads((ROOT / "docs" / "success_criteria.json").read_text())
+        video_entry = next(item for item in criteria["criteria"] if item["id"] == "SC-SUP-06")
+
+        self.assertIn("submission/lp0016-demo.mp4", readme)
+        self.assertIn("scripts/make_submission_video.py", readme)
+        self.assertIn("ffmpeg", script)
+        self.assertIn("say", script)
+        self.assertIn("localnet_evidence", script)
+        self.assertEqual(video_entry["current_status"], "local_artifact")
+        self.assertTrue(any(proof["path"] == "../submission/lp0016-demo.mp4" for proof in video_entry["proofs"]))
 
 
 if __name__ == "__main__":
