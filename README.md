@@ -42,6 +42,9 @@ Submission evidence:
 - Local sequencer deploy/RISC0 evidence: `cd src && python3 scripts/collect_localnet_evidence.py`
 - RISC0 proof performance: `cd src && python3 scripts/check_risc0_proof_performance.py --run-prover --fail-on-blocked`
 - Optional Noir circuit check: `cd src && python3 scripts/check_noir_icing.py --pretty`
+- Basecamp clean-shell artifact diagnostic: `cd src && python3 scripts/check_basecamp_inspector.py --pretty`
+- Basecamp inspector verification, when an inspector-enabled app is available:
+  `cd src && python3 scripts/check_basecamp_inspector.py --run-click-through --pretty`
 - Narrated demo video: `submission/lp0016-demo.mp4`
 - Video generator: `cd src && python3 scripts/make_submission_video.py`
 - Evidence JSON: `src/dist/submission/evidence.json`
@@ -62,15 +65,23 @@ Current blockers:
   evidence for that path. Separate public-network proof still needs
   `LOGOS_LEZ_DEVNET_URL`, `LOGOS_LEZ_TESTNET_URL`, and program IDs in
   `src/registry/program_ids/devnet.txt` and `src/registry/program_ids/testnet.txt`.
-- Full Basecamp runtime click-through in a clean shell: the LGX package is built
-  by the local gate, but the inspector test needs external runtime artifacts:
-  `LOGOS_BASECAMP_APP`, `LOGOS_QT_MCP`, and Logos design-system QML imports.
+- Full Basecamp runtime click-through in a clean shell: artifact discovery is
+  now durable and no longer relies on `/tmp`. `check_basecamp_inspector.py`
+  searches `LOGOS_BASECAMP_CACHE`, `~/.cache/logos-basecamp`, and explicit
+  `LOGOS_BASECAMP_APP` / `LOGOS_QT_MCP` / `LOGOS_DESIGN_SYSTEM_ROOT` values
+  before legacy scratch paths. The public `logos-basecamp` v0.1.1 DMG and the
+  current action-built app provide durable runtime binaries, but they do not
+  expose the QML inspector endpoint used by `app/basecamp-forum/ui-tests.mjs`.
+  Final click-through evidence therefore still needs an inspector-enabled
+  Basecamp build and a successful
+  `cd src && python3 scripts/check_basecamp_inspector.py --run-click-through --pretty`.
 
 The local lifecycle covers forum creation, anonymous registration, anonymous
 posting, N-of-M moderation, K-certificate slash, revocation, and retroactive
 linking only for the slashed member. Basecamp packaging is included in the
-local gate; full Basecamp click-through needs the external Basecamp runtime,
-`logos-qt-mcp`, and Logos design-system QML artifacts.
+local gate; clean-shell artifact discovery now works from durable cache/env
+locations, while full Basecamp click-through needs an inspector-enabled
+Basecamp runtime plus `logos-qt-mcp` and Logos design-system QML artifacts.
 
 Lean 4 usage:
 

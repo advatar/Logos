@@ -67,10 +67,60 @@ class RuntimeCheckTests(unittest.TestCase):
             report = json.loads(output)
             blocker_ids = {blocker["id"] for blocker in report["blockers"]}
 
+        self.assertEqual(report["artifact_status"], "ready")
         self.assertNotIn("logos_qt_mcp", blocker_ids)
         self.assertNotIn("basecamp_app", blocker_ids)
         self.assertNotIn("nix", blocker_ids)
         self.assertNotIn("logos_design_system", blocker_ids)
+        self.assertIn("basecamp_inspector", blocker_ids)
+
+    def test_basecamp_inspector_accepts_matching_clickthrough_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            basecamp_dir = root / "basecamp"
+            qt_mcp = root / "qt-mcp"
+            app = root / "LogosBasecamp"
+            design_system = root / "design-system"
+            evidence = root / "evidence.json"
+            basecamp_dir.mkdir()
+            (qt_mcp / "test-framework").mkdir(parents=True)
+            (qt_mcp / "test-framework" / "framework.mjs").write_text("")
+            (design_system / "Logos" / "Theme").mkdir(parents=True)
+            (design_system / "Logos" / "Controls").mkdir(parents=True)
+            (design_system / "Logos" / "Theme" / "qmldir").write_text("")
+            (design_system / "Logos" / "Controls" / "qmldir").write_text("")
+            app.write_text("#!/usr/bin/env sh\nexit 0\n")
+            app.chmod(0o755)
+            evidence.write_text(
+                json.dumps(
+                    {
+                        "status": "passed",
+                        "basecamp_app": str(app),
+                        "logos_qt_mcp": str(qt_mcp),
+                        "design_system_qml": str(design_system),
+                    }
+                )
+            )
+
+            env = os.environ.copy()
+            env["LOGOS_BASECAMP_DIR"] = str(basecamp_dir)
+            env["LOGOS_QT_MCP"] = str(qt_mcp)
+            env["LOGOS_BASECAMP_APP"] = str(app)
+            env["LOGOS_DESIGN_SYSTEM_ROOT"] = str(design_system)
+            env["LOGOS_BASECAMP_INSPECTOR_EVIDENCE"] = str(evidence)
+            output = subprocess.check_output(
+                ["python3", str(ROOT / "scripts" / "check_basecamp_inspector.py")],
+                cwd=ROOT,
+                env=env,
+                text=True,
+            )
+            report = json.loads(output)
+
+        self.assertEqual(report["status"], "ready")
+        self.assertEqual(report["artifact_status"], "ready")
+        self.assertEqual(report["inspector_evidence"]["status"], "accepted")
+        self.assertEqual(report["click_through"]["status"], "evidence_accepted")
+        self.assertEqual(report["blockers"], [])
 
     def test_local_submission_gate_exists_and_records_local_policy(self):
         gate = ROOT / "scripts" / "local_submission_gate.py"

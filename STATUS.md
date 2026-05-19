@@ -18,6 +18,15 @@
 - Top-level README blocker and Lean proof-surface documentation: https://github.com/advatar/Logos/issues/35
 - Optional Noir proof-circuit icing: https://github.com/advatar/Logos/issues/36
 - Narrated submission video generation: https://github.com/advatar/Logos/issues/37
+- Clean-shell Basecamp runtime artifacts: https://github.com/advatar/Logos/issues/38
+
+## Active Clean-Shell Basecamp Runtime Pass
+
+- [x] Reproduce the clean-shell artifact check against durable cache paths.
+- [x] Confirm the public release/action Basecamp app artifacts are durable but do not expose the QML inspector endpoint needed by the click-through harness.
+- [x] Tighten `scripts/check_basecamp_inspector.py` so path-ready runtime artifacts are not reported as a full inspector-ready pass without successful click-through evidence.
+- [x] Update `README.md` to distinguish clean-shell artifact discovery from the remaining inspector-enabled app requirement.
+- [x] Run local verification, commit, push, and update issue #38.
 
 ## Active Narrated Submission Video Pass
 
@@ -138,10 +147,14 @@
 
 - [ ] CU measurement for `register_member` / `slash_member`: local registry deploy submission works, but current scaffold/wallet exposes no custom deployed-program invoke command or CU reporting path for these LP-0016 instructions. `scripts/measure_cu.sh` now reports this exact narrowed blocker as JSON after deployment submission.
 - [ ] LEZ public devnet/testnet proof if reviewers insist on public network endpoints: the current official LEZ wallet quickstart documents standalone local sequencer usage at `localhost:3040`, and our `registry/program_ids/localnet.txt` plus `scripts/collect_localnet_evidence.py` cover that public developer path. `scripts/check_live_network_deploy.py` still reports exact missing endpoint/program-ID blockers for separate public devnet/testnet deployments: `LOGOS_LEZ_DEVNET_URL`, `LOGOS_LEZ_TESTNET_URL`, `registry/program_ids/devnet.txt`, and `registry/program_ids/testnet.txt`.
-- [ ] Basecamp inspector runtime artifacts: durable env/cache discovery is implemented, but this shell currently lacks `logos-qt-mcp`, a built `LogosBasecamp` binary, and design-system QML paths unless supplied through `LOGOS_BASECAMP_CACHE` or explicit env vars.
+- [ ] Basecamp inspector click-through evidence: clean-shell artifact discovery now resolves durable cache/env paths for `logos-qt-mcp`, Basecamp runtime binaries, and Logos design-system QML imports. The public `logos-basecamp` v0.1.1 DMG and current action-built app are durable runtime artifacts, but they do not expose the QML inspector endpoint used by `app/basecamp-forum/ui-tests.mjs`. `scripts/check_basecamp_inspector.py` therefore reports `artifact_status=ready` while keeping `status=blocked` until an inspector-enabled Basecamp build passes `--run-click-through`.
 
 ## Current Verification
 
+- `cd src && python3 -m unittest scripts/test_runtime_checks.py scripts/test_success_criteria.py scripts/test_phase_closure.py`: passed, 33 tests.
+- `cd src && python3 scripts/check_basecamp_inspector.py --pretty`: passed script execution and reported `artifact_status=ready`, `status=blocked`, and missing matching inspector evidence for the durable public Basecamp runtime.
+- `cd src && python3 scripts/check_basecamp_inspector.py --run-click-through --timeout 22 --pretty`: passed script execution and reported the narrowed public-runtime blocker, `Inspector not available at localhost:3768 after 15000ms`.
+- `cd src && scripts/local_submission_gate.py`: passed and wrote `dist/submission/evidence.json` with all required local steps green; optional Basecamp remains blocked only on inspector-enabled click-through evidence.
 - `cd src && python3 scripts/demo_e2e.py`: passed.
 - `cd src && python3 -m unittest scripts/test_protocol.py scripts/test_basecamp_package.py scripts/test_runtime_checks.py scripts/test_success_criteria.py scripts/test_phase_closure.py`: passed, 40 tests.
 - `cd src && python3 -m unittest scripts/test_runtime_checks.py scripts/test_success_criteria.py`: passed, 22 tests.
