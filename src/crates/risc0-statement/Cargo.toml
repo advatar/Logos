@@ -2,7 +2,7 @@
 name = "risc0-statement"
 version = "0.1.0"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 description = "Pure LP-0016 membership-and-post statement, used inside the RISC0 guest and verified on the CPU."
 
 [features]

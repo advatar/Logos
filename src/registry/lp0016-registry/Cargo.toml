@@ -2,7 +2,7 @@
 name = "lp0016-registry"
 version = "0.1.0"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 description = "LP-0016 LEZ registry program: forum state, member registration, slash verification."
 
 [features]

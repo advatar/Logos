@@ -19,6 +19,14 @@
 - Optional Noir proof-circuit icing: https://github.com/advatar/Logos/issues/36
 - Narrated submission video generation: https://github.com/advatar/Logos/issues/37
 - Clean-shell Basecamp runtime artifacts: https://github.com/advatar/Logos/issues/38
+- Repository MIT license update: https://github.com/advatar/Logos/issues/39
+
+## Active Repository MIT License Pass
+
+- [x] Confirm the repository has no top-level `LICENSE` file and identify repo-owned Rust license metadata.
+- [x] Add a root MIT `LICENSE` file.
+- [x] Align repo-owned Cargo license metadata with MIT while leaving vendored dependency licenses untouched.
+- [x] Run focused local verification, commit, push, and update issue #39.
 
 ## Active Clean-Shell Basecamp Runtime Pass
 
@@ -151,6 +159,10 @@
 
 ## Current Verification
 
+- `cd src && cargo metadata --no-deps --format-version 1 >/tmp/logos-license-metadata.json && cargo build --workspace`: passed.
+- `cd src && cargo check --manifest-path zk/membership-host/Cargo.toml`: passed.
+- `cd src && rustup run stable cargo check --manifest-path zk/membership-guest/Cargo.toml && cargo +stable check --manifest-path methods/guest/Cargo.toml`: passed.
+- `cd src && cargo test --workspace`: passed, 50 Rust tests across workspace crates plus doc-tests.
 - `cd src && python3 -m unittest scripts/test_runtime_checks.py scripts/test_success_criteria.py scripts/test_phase_closure.py`: passed, 33 tests.
 - `cd src && python3 scripts/check_basecamp_inspector.py --pretty`: passed script execution and reported `artifact_status=ready`, `status=blocked`, and missing matching inspector evidence for the durable public Basecamp runtime.
 - `cd src && python3 scripts/check_basecamp_inspector.py --run-click-through --timeout 22 --pretty`: passed script execution and reported the narrowed public-runtime blocker, `Inspector not available at localhost:3768 after 15000ms`.

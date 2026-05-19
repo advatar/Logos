@@ -2,7 +2,7 @@
 name = "lp0016-membership-host"
 version = "0.1.0"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 description = "LP-0016 RISC0 host: build proofs from the guest ELF and verify receipts."
 
 # Excluded from the top-level workspace so the default build does not require

@@ -4,6 +4,8 @@ LP-0016 anonymous forum starter implementation.
 
 The current starter app lives in `src/`. It includes the Rust protocol workspace, Python simulator, Lean proof modules, LEZ/SPEL registry crate, feature-gated RISC0 host/guest crates, and a Basecamp flow harness. See `src/README.md` and `REPO.md` for the detailed repository notes.
 
+License: MIT. See `LICENSE`.
+
 Proof-stack highlights:
 
 - **RISC0:** the primary submitted zero-knowledge proof path. The local gate
