@@ -27,6 +27,12 @@ Latest run: **17/17 steps pass** — Python lifecycle demo, success-criteria sui
 | **Narrated demo video** | [`submission/lp0016-demo.mp4`](submission/lp0016-demo.mp4) — 1280×720 H.264/AAC, ~2 min, narrated walkthrough of architecture and full lifecycle |
 | **Optional Noir circuit** | `src/noir/post_binding/` — additive ACIR/Nargo circuit for the post-binding relation, runnable with `nargo test` |
 
+## Demo Video
+
+[![LP-0016 narrated demo video first frame](submission/lp0016-demo-poster.jpg)](submission/lp0016-demo.mp4)
+
+Click the first frame to open the narrated MP4 walkthrough.
+
 ## Quick verification commands
 
 ```bash
@@ -82,6 +88,7 @@ submission                    Narrated demo video and submission README
 - RISC0 proof performance: `src/dist/submission/risc0_proof_performance.json`
 - Localnet registry image ID: `src/registry/program_ids/localnet.txt`
 - Narrated demo video: [`submission/lp0016-demo.mp4`](submission/lp0016-demo.mp4)
+- Demo video poster: [`submission/lp0016-demo-poster.jpg`](submission/lp0016-demo-poster.jpg)
 - Video generator: `src/scripts/make_submission_video.py`
 - Submission walkthrough doc: `src/docs/submission.md`
 

@@ -22,6 +22,15 @@
 - Repository MIT license update: https://github.com/advatar/Logos/issues/39
 - README inline submission video link: https://github.com/advatar/Logos/issues/40
 - Final hackathon polish: prize spec, README license, Lean note: https://github.com/advatar/Logos/issues/41
+- README inline demo video poster: https://github.com/advatar/Logos/issues/42
+
+## Active README Inline Demo Video Poster Pass
+
+- [x] Confirm GitHub README can reliably show an inline image preview linked to the MP4.
+- [x] Extract the first-frame poster image from `submission/lp0016-demo.mp4`.
+- [x] Update `README.md` to display the poster inline and link it to the MP4.
+- [x] Add focused README coverage for the poster link.
+- [x] Run local verification, commit, push, and update issue #42.
 
 ## Active Final Hackathon Polish Pass
 
@@ -176,7 +185,7 @@
 
 ## Current Verification
 
-- `cd src && python3 -m unittest scripts.test_runtime_checks.RuntimeCheckTests.test_submission_video_is_documented_and_reproducible && cargo build --workspace`: passed.
+- `cd src && python3 -m unittest scripts.test_runtime_checks.RuntimeCheckTests.test_submission_video_is_documented_and_reproducible && cargo build --workspace`: passed after adding the README inline demo-video poster.
 - `cd src && python3 -m unittest scripts/test_runtime_checks.py scripts/test_success_criteria.py scripts/test_phase_closure.py && cd lean && lake env lean AnonymousForum/Shamir.lean && lake build`: passed, 33 Python tests plus direct Lean Shamir check and Lean build.
 - `cd src && scripts/local_submission_gate.py`: passed and wrote `dist/submission/evidence.json` with all 17 local gate steps green after final polish.
 - `cd src && cargo metadata --no-deps --format-version 1 >/tmp/logos-license-metadata.json && cargo build --workspace`: passed.

@@ -177,6 +177,8 @@ class RuntimeCheckTests(unittest.TestCase):
         video_entry = next(item for item in criteria["criteria"] if item["id"] == "SC-SUP-06")
 
         self.assertIn("submission/lp0016-demo.mp4", readme)
+        self.assertIn("submission/lp0016-demo-poster.jpg", readme)
+        self.assertIn("[![LP-0016 narrated demo video first frame]", readme)
         self.assertIn("scripts/make_submission_video.py", readme)
         self.assertIn("ffmpeg", script)
         self.assertIn("say", script)
