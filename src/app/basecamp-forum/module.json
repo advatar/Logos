@@ -1,0 +1,20 @@
+{
+  "manifestVersion": "0.1.0",
+  "name": "lp0016_anon_forum",
+  "displayName": "LP-0016 Anonymous Forum Demo",
+  "version": "0.1.0",
+  "description": "Basecamp flow harness for anonymous threshold-moderated forums",
+  "author": "LP-0016 contributors",
+  "type": "ui_qml",
+  "icon": "icon.svg",
+  "view": "Main.qml",
+  "category": "privacy",
+  "dependencies": [],
+  "capabilities": [],
+  "main": {
+    "darwin-arm64": "Main.qml",
+    "darwin-x86_64": "Main.qml",
+    "linux-aarch64": "Main.qml",
+    "linux-x86_64": "Main.qml"
+  }
+}
